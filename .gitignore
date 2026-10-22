@@ -2,12 +2,3 @@ node_modules
 dist
 .DS_Store
 *.log
-
-node_modules/
-.env
-__pycache__/
-*.pyc
-
-node_modules/
-.env
-__pycache__/
