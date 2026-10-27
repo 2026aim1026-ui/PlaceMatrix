@@ -1,0 +1,23 @@
+# PostgreSQL for PlaceMatrix.  Start it with:  docker compose up -d db
+# It creates the database "placematrix" owned by user "placematrix" (password "placematrix"),
+# matching the default DATABASE_URL in backend/.env.example.
+services:
+  db:
+    image: postgres:16
+    container_name: placematrix-db
+    environment:
+      POSTGRES_USER: placematrix
+      POSTGRES_PASSWORD: placematrix
+      POSTGRES_DB: placematrix
+    ports:
+      - "5432:5432"
+    volumes:
+      - placematrix-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U placematrix -d placematrix"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  placematrix-pgdata:
