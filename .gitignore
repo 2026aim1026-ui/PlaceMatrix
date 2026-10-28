@@ -1,0 +1,37 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files & Secrets
+.env
+*.env
+backend/.env
+frontend/.env
+!.env.example
+!backend/.env.example
+
+# Local Databases
+*.db
+*.sqlite3
+placematrix.db
+backend/placematrix.db
+
+# Uploads & Media
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Node & Frontend Build
+node_modules/
+frontend/dist/
+dist/
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
