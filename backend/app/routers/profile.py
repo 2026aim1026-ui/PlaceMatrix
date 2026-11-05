@@ -34,7 +34,7 @@ from ..services import Actor, bad, conflict, forbidden, get_actor, log, not_foun
 
 router = APIRouter(prefix="/api", tags=["profile & documents"])
 
-ALLOWED_TYPES = {"application/pdf": b"%PDF", "image/png": b"\x89PNG", "image/jpeg": b"\xff\xd8\xff"}
+ALLOWED_TYPES = {"application/pdf": b"%PDF"}
 
 FIELD_LABELS = {
     "cgpa": "Overall CGPA",
@@ -211,10 +211,10 @@ async def upload_document(
         raise bad(f"File is too large. Maximum is {settings.max_upload_bytes // (1024 * 1024)} MB.")
     magic = ALLOWED_TYPES.get(content_type)
     if magic is None or not data.startswith(magic):
-        raise bad("Unsupported or corrupted file. Allowed: PDF, PNG, JPG.")
+        raise bad("Unsupported or corrupted file. Allowed: PDF only.")
 
     doc_id = short_id("doc")
-    ext = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg"}[content_type]
+    ext = {"application/pdf": ".pdf"}[content_type]
     folder = settings.upload_dir / s.roll
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{doc_id}{ext}"
