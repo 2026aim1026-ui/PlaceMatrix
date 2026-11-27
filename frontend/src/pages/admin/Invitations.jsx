@@ -70,9 +70,12 @@ export default function Invitations() {
   const send = async (ids, title) => {
     const res = await repo.sendInvitations(me.actor, ids);
     if (!res.ok) { toast.error('Action not completed', res.error); return; }
-    const { emailed, links } = res.result;
-    if (links.length === 1 && links[0].link) copyLink(links[0].link, title);
-    else toast.success(title, emailed ? `${emailed} invitation email(s) sent.` : 'Copy each activation link from the table and share it with the student.');
+    const { emailed, emailFailed, links } = res.result;
+    if (emailed) {
+      const failedNote = emailFailed ? ` ${emailFailed} failed — see Email Center and use Copy link for those.` : '';
+      toast.success(title, `${emailed} invitation email(s) sent with the activation link.${failedNote}`);
+    } else if (links.length === 1 && links[0].link) copyLink(links[0].link, title);
+    else toast.success(title, 'Copy each activation link from the table and share it with the student.');
   };
 
   const copyLink = async (link, title = 'Activation link copied') => {
