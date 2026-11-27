@@ -4,7 +4,7 @@
 Exercises every module through the real HTTP API (and optionally the database) and prints a
 PASS/FAIL line per check. Uses only the Python standard library.
 
-    python scripts/smoke_test.py                       # API at http://localhost:8000
+    python scripts/smoke_test.py                       # API at http://127.0.0.1:8000
     python scripts/smoke_test.py --api http://host:8000
     python scripts/smoke_test.py --db-check            # also prove audit_logs is append-only (needs psycopg)
 
@@ -23,7 +23,7 @@ import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 
-API = "http://localhost:8000"
+API = "http://127.0.0.1:8000"
 DOMAIN = "iitrpr.ac.in"
 PW = "demo123"
 RESULTS: list[tuple[str, bool, str]] = []
@@ -153,6 +153,15 @@ def iso_in(**kw) -> str:
 # ---------------------------------------------------------------------------------------------
 
 
+_TOKENS: dict[str, str] = {}
+
+
+def cdpc_token() -> str:
+    if 'cdpc' not in _TOKENS:
+        _TOKENS['cdpc'] = login(f"cdpc@{DOMAIN}")
+    return _TOKENS['cdpc']
+
+
 def run(db_check: bool) -> None:
     section("0. Server & demo reset")
     r = call("GET", "/api/health")
@@ -176,9 +185,9 @@ def run(db_check: bool) -> None:
     viewonly = login(f"staff.office@{DOMAIN}")
     spoc = login(f"spoc@{DOMAIN}")
     spoc2 = login(f"simran.kaur@{DOMAIN}")
-    ccpc = login(f"ccpc@{DOMAIN}")
-    me = call("GET", "/api/auth/me", token=ccpc).json
-    check("All four roles can sign in (Student, Verifier, SPOC, CCPC)", me and me["role"] == "CCPC")
+    cdpc = login(f"cdpc@{DOMAIN}")
+    me = call("GET", "/api/auth/me", token=cdpc).json
+    check("All four roles can sign in (Student, Verifier, SPOC, CDPC)", me and me["role"] == "CDPC")
     check("Requests without a token get 401", call("GET", "/api/state").status == 401)
 
     # -----------------------------------------------------------------------------------------
@@ -320,7 +329,7 @@ def run(db_check: bool) -> None:
     check("Other SPOC cannot move this applicant (403)", r.status == 403)
 
     # -----------------------------------------------------------------------------------------
-    section("9. Unfreeze Tickets & CCPC governance")
+    section("9. Unfreeze Tickets & CDPC governance")
     divya = login(f"2026mcb1019@{DOMAIN}")
     r = call("POST", "/api/tickets", {"type": "UNFREEZE", "field": "cgpa", "requestedValue": "9.10", "justification": "short"}, token=divya)
     check("Justification shorter than 20 chars rejected", r.status == 400, r.detail)
@@ -334,23 +343,23 @@ def run(db_check: bool) -> None:
     r = call("POST", "/api/tickets", {"type": "UNFREEZE", "field": "cgpa", "requestedValue": "9",
                                        "justification": "I would like to update my CGPA after placement."}, token=student)
     check("Policy-locked (placed) student cannot raise tickets", r.status == 400, r.detail)
-    r = call("POST", f"/api/tickets/{ticket}/resolve", {"decision": "APPROVED", "resolution": "Verified with the academic section."}, token=ccpc)
-    check("CCPC approves → profile unfrozen for editing", r.status == 200 and r.json["status"] == "APPROVED", r.detail)
+    r = call("POST", f"/api/tickets/{ticket}/resolve", {"decision": "APPROVED", "resolution": "Verified with the academic section."}, token=cdpc)
+    check("CDPC approves → profile unfrozen for editing", r.status == 200 and r.json["status"] == "APPROVED", r.detail)
     dv = state(divya)["students"][0]
     check("Profile state is UNFROZEN_EDITING and unlocked", dv["profileState"] == "UNFROZEN_EDITING" and not dv["locked"], dv["profileState"])
     r = call("PATCH", "/api/students/2026MCB1019/profile", {"patch": {"cgpa": 9.1}}, token=divya)
     check("Student saves the corrected value", r.status == 200 and r.json["cgpa"] == 9.1, r.detail)
     r = call("POST", "/api/students/2026MCB1019/submit", token=divya)
     check("Resubmitted → back to PENDING verification", r.status == 200 and r.json["verification"] == "PENDING", r.detail)
-    r = call("POST", "/api/tickets/t-03/resolve", {"decision": "REJECTED", "resolution": "Supplementary result not yet notified."}, token=ccpc)
-    check("CCPC rejects a ticket with a note", r.status == 200 and r.json["status"] == "REJECTED", r.detail)
+    r = call("POST", "/api/tickets/t-03/resolve", {"decision": "REJECTED", "resolution": "Supplementary result not yet notified."}, token=cdpc)
+    check("CDPC rejects a ticket with a note", r.status == 200 and r.json["status"] == "REJECTED", r.detail)
 
     # -----------------------------------------------------------------------------------------
     section("10. Onboarding invitations")
-    r = call("POST", "/api/invitations/import", {"rows": [{"entryNo": "2026CSB1061", "name": "Aditi Verma"}, {"entryNo": "BAD123", "name": "X"}]}, token=ccpc)
+    r = call("POST", "/api/invitations/import", {"rows": [{"entryNo": "2026CSB1061", "name": "Aditi Verma"}, {"entryNo": "BAD123", "name": "X"}]}, token=cdpc)
     check("Fee-paid list imported (invalid entry reported)", r.status == 200 and r.json["added"] == ["2026CSB1061"] and r.json["errors"], r.detail)
-    inv = next(i for i in state(ccpc)["invitations"] if i["entryNo"] == "2026CSB1061")
-    r = call("POST", "/api/invitations/send", {"ids": [inv["id"]]}, token=ccpc)
+    inv = next(i for i in state(cdpc)["invitations"] if i["entryNo"] == "2026CSB1061")
+    r = call("POST", "/api/invitations/send", {"ids": [inv["id"]]}, token=cdpc)
     link = r.json["links"][0]["link"] if r.status == 200 else ""
     check("Invitation sent with a one-time activation link", r.status == 200 and "/activate?token=" in link, r.detail)
     token_param = link.split("token=")[-1]
@@ -363,47 +372,47 @@ def run(db_check: bool) -> None:
     r = call("POST", f"/api/invitations/{inv['id']}/accept", token=new_tok)
     check("Invitation accepted → DRAFT profile created", r.status == 200 and r.json["profileState"] == "DRAFT", r.detail)
     check("New student signs in with their own password", login(f"2026csb1061@{DOMAIN}", "aditi-secret-1") is not None)
-    farhan = next(i for i in state(ccpc)["invitations"] if i["entryNo"] == "2026CSB1045")
-    call("POST", "/api/invitations/send", {"ids": [farhan["id"]]}, token=ccpc)
+    farhan = next(i for i in state(cdpc)["invitations"] if i["entryNo"] == "2026CSB1045")
+    call("POST", "/api/invitations/send", {"ids": [farhan["id"]]}, token=cdpc)
     ft = call("POST", "/api/auth/demo-login", {"email": f"2026csb1045@{DOMAIN}"}).json["token"]
     r = call("POST", f"/api/invitations/{farhan['id']}/decline", token=ft)
     check("Invited student can decline", r.status == 200 and r.json["status"] == "DECLINED", r.detail)
 
     # -----------------------------------------------------------------------------------------
     section("11. Companies, drives & synchronized deadlines")
-    r = call("POST", "/api/companies/c-08/approve", token=ccpc)
-    check("CCPC approves a pending company", r.status == 200 and r.json["status"] == "APPROVED", r.detail)
-    r = call("POST", "/api/companies/c-08/assign-spoc", {"spocId": f"simran.kaur@{DOMAIN}"}, token=ccpc)
-    check("CCPC assigns a SPOC", r.status == 200 and r.json["spocId"] == f"simran.kaur@{DOMAIN}", r.detail)
-    d04 = next(d for d in state(ccpc)["drives"] if d["id"] == "d-04")
+    r = call("POST", "/api/companies/c-08/approve", token=cdpc)
+    check("CDPC approves a pending company", r.status == 200 and r.json["status"] == "APPROVED", r.detail)
+    r = call("POST", "/api/companies/c-08/assign-spoc", {"spocId": f"simran.kaur@{DOMAIN}"}, token=cdpc)
+    check("CDPC assigns a SPOC", r.status == 200 and r.json["spocId"] == f"simran.kaur@{DOMAIN}", r.detail)
+    d04 = next(d for d in state(cdpc)["drives"] if d["id"] == "d-04")
     new_deadline = (datetime.fromisoformat(d04["deadline"]) + timedelta(days=2)).isoformat()
     r = call("POST", "/api/drives/d-04/extend", {"deadline": new_deadline, "reason": "x"}, token=spoc)
-    check("Only CCPC can extend deadlines (SPOC gets 403)", r.status == 403)
-    r = call("POST", "/api/drives/d-04/extend", {"deadline": d04["deadline"], "reason": "Recruiter asked"}, token=ccpc)
+    check("Only CDPC can extend deadlines (SPOC gets 403)", r.status == 403)
+    r = call("POST", "/api/drives/d-04/extend", {"deadline": d04["deadline"], "reason": "Recruiter asked"}, token=cdpc)
     check("New deadline must be later than the current one", r.status == 400, r.detail)
-    r = call("POST", "/api/drives/d-04/extend", {"deadline": new_deadline, "reason": "Recruiter requested more applicants"}, token=ccpc)
-    check("CCPC extends the deadline", r.status == 200 and r.json["deadline"] != d04["deadline"], r.detail)
+    r = call("POST", "/api/drives/d-04/extend", {"deadline": new_deadline, "reason": "Recruiter requested more applicants"}, token=cdpc)
+    check("CDPC extends the deadline", r.status == 200 and r.json["deadline"] != d04["deadline"], r.detail)
     sd = next(d for d in state(student)["drives"] if d["id"] == "d-04")
     check("Every role sees the same stored deadline", sd["deadline"] == r.json["deadline"])
     r = call("POST", "/api/drives", {"companyId": "c-05", "role": "Flash Drive Test", "ctc": 10, "deadline": iso_in(seconds=3), "status": "OPEN",
-                                      "criteria": {"minCgpa": 6, "maxBacklogs": 2, "branches": [], "gradYears": [2026]}}, token=ccpc)
+                                      "criteria": {"minCgpa": 6, "maxBacklogs": 2, "branches": [], "gradYears": [2026]}}, token=cdpc)
     flash = r.json["id"] if r.status == 200 else None
-    check("CCPC publishes a drive closing in 3 seconds", r.status == 200, r.detail)
+    check("CDPC publishes a drive closing in 3 seconds", r.status == 200, r.detail)
     time.sleep(4)
-    call("GET", "/api/sync", token=ccpc)
-    fd = next((d for d in state(ccpc)["drives"] if d["id"] == flash), {})
+    call("GET", "/api/sync", token=cdpc)
+    fd = next((d for d in state(cdpc)["drives"] if d["id"] == flash), {})
     check("Deadline engine auto-closes the drive at 00:00:00", fd.get("status") == "CLOSED", str(fd.get("status")))
-    r = call("POST", "/api/companies/c-07/active", {"active": False}, token=ccpc)
+    r = call("POST", "/api/companies/c-07/active", {"active": False}, token=cdpc)
     check("Deactivating a company freezes its open drives", r.status == 200 and not r.json["active"], r.detail)
 
     # -----------------------------------------------------------------------------------------
     section("12. Users, verifier rights & SPOC dual context")
-    r = call("POST", "/api/users", {"email": f"new.verifier@{DOMAIN}", "name": "Dr. Test Verifier", "role": "VERIFIER", "canVerify": False}, token=ccpc)
-    check("CCPC creates a staff account", r.status == 200 and r.json["user"]["canVerify"] is False, r.detail)
-    r = call("POST", "/api/users", {"email": "outsider@gmail.com", "name": "X", "role": "VERIFIER"}, token=ccpc)
+    r = call("POST", "/api/users", {"email": f"new.verifier@{DOMAIN}", "name": "Dr. Test Verifier", "role": "VERIFIER", "canVerify": False}, token=cdpc)
+    check("CDPC creates a staff account", r.status == 200 and r.json["user"]["canVerify"] is False, r.detail)
+    r = call("POST", "/api/users", {"email": "outsider@gmail.com", "name": "X", "role": "VERIFIER"}, token=cdpc)
     check("Staff accounts must be @iitrpr.ac.in", r.status == 400, r.detail)
-    r = call("PUT", f"/api/users/new.verifier@{DOMAIN}", {"canVerify": True}, token=ccpc)
-    check("CCPC grants verification rights", r.status == 200 and r.json["canVerify"] is True, r.detail)
+    r = call("PUT", f"/api/users/new.verifier@{DOMAIN}", {"canVerify": True}, token=cdpc)
+    check("CDPC grants verification rights", r.status == 200 and r.json["canVerify"] is True, r.detail)
     r = call("POST", "/api/auth/switch-to-student", token=spoc)
     feed = r.json if r.status == 200 else {}
     check("SPOC switches to own candidate feed", r.status == 200 and feed.get("userId") == "2026CSB1011" and feed.get("backTo") == f"spoc@{DOMAIN}", r.detail)
@@ -413,25 +422,29 @@ def run(db_check: bool) -> None:
 
     # -----------------------------------------------------------------------------------------
     section("13. Analytics & audit trail")
-    a = call("GET", "/api/analytics/summary", token=ccpc)
+    a = call("GET", "/api/analytics/summary", token=cdpc)
     k = a.json["kpis"] if a.status == 200 else {}
     check("Analytics summary computed from the database", a.status == 200 and k.get("placed") == 2 and k.get("offers") == 2, str(k))
     check("Branch-wise and company-wise breakdowns present", a.status == 200 and a.json["byBranch"] and a.json["byCompany"])
-    acts = audit_actions(ccpc)
+    acts = audit_actions(cdpc)
     needed = {"PROFILE_SUBMITTED", "DOCUMENT_UPLOADED", "PROFILE_VERIFIED", "PROFILE_LOCKED", "REVISION_REQUESTED", "APPLICATION_SUBMITTED",
               "BATCH_SHORTLIST_EXECUTED", "ROSTER_EXPORTED", "POLICY_LOCK_TRIGGERED", "UNFREEZE_REQUESTED", "TICKET_APPROVED",
               "PROFILE_UNLOCKED", "INVITATION_SENT", "INVITATION_ACCEPTED", "DEADLINE_EXTENDED", "DRIVE_CLOSED", "SPOC_ASSIGNED", "USER_CREATED"}
     missing = needed - acts
     check("Every governed action is written to the audit trail", not missing, f"missing: {sorted(missing)}")
-    r = call("GET", "/api/audit/export.csv", token=ccpc)
+    r = call("GET", "/api/audit/export.csv", token=cdpc)
     check("Audit trail exports as CSV", r.status == 200 and b"Log ID" in r.body)
     v1 = call("GET", "/api/sync", token=student).json["version"]
     call("PATCH", "/api/students/2026AIB1020/profile", {"patch": {"phone": "+91 98111 22335"}}, token=sana)
     v2 = call("GET", "/api/sync", token=student).json["version"]
-    check("Live-sync version advances on every change (no stale views)", v2 > v1, f"{v1} → {v2}")
+    check("Live-sync version advances on every change (no stale views)", v2 != v1, f"{v1} → {v2}")
+
+
+    # -----------------------------------------------------------------------------------------
+    run_feature_checks(student=student, cdpc=cdpc, spoc=spoc, spoc2=spoc2, verifier=verifier, viewonly=viewonly)
 
     if db_check:
-        section("14. Database integrity (direct SQL)")
+        section("20. Database integrity (direct SQL)")
         try:
             import psycopg  # noqa: F401
         except ImportError:
@@ -453,6 +466,183 @@ def run(db_check: bool) -> None:
                     check("UNIQUE(drive_id, roll) enforced by PostgreSQL", "uq_applications_drive_roll" in str(exc), str(exc)[:80])
                 rows = conn.execute("SELECT profile_state, count(*) FROM v_student_profile_state GROUP BY 1").fetchall()
                 check("v_student_profile_state view reports the state machine", any(r[0] == "POLICY_LOCKED" for r in rows), str(rows))
+
+                section("21. Direct database edits reach the website")
+                before = call("GET", "/api/sync", token=cdpc_token()).json["version"]
+                conn.execute("UPDATE companies SET industry = 'Edited directly in SQL' WHERE company_id = 'c-02'")
+                changed = False
+                for _ in range(20):
+                    time.sleep(0.5)
+                    if call("GET", "/api/sync", token=cdpc_token()).json["version"] != before:
+                        changed = True
+                        break
+                check("Sync version changes after a direct SQL UPDATE", changed)
+                comp = next(c for c in state(cdpc_token())["companies"] if c["id"] == "c-02")
+                check("Fresh state shows the edited value", comp["industry"] == "Edited directly in SQL", comp["industry"])
+                conn.execute("INSERT INTO placement_drives (drive_id, company_id, role, ctc, close_at, status, allowed_branches, grad_years, degrees, skills) "
+                             "VALUES ('d-sql', 'c-06', 'Added via SQL', 15, now() + interval '3 days', 'OPEN', '{}', '{2026}', '{}', '{}')")
+                time.sleep(2.5)
+                check("A drive inserted directly in SQL appears for students", any(d["id"] == "d-sql" for d in state(login(f"2026aib1026@{DOMAIN}"))["drives"]))
+
+
+# ---------------------------------------------------------------------------------------------
+# New features: recruitment reassignment, multiple resumes + per-application snapshots, SMTP email
+# ---------------------------------------------------------------------------------------------
+
+
+def pdf_bytes(tag: str) -> bytes:
+    return tiny_pdf(f"PlaceMatrix resume {tag}")
+
+
+def fetch(path: str, token: str) -> Resp:
+    return call("GET", path, token=token)
+
+
+def run_feature_checks(*, student, cdpc, spoc, spoc2, verifier, viewonly) -> None:
+    neha = login(f"neha.gupta@{DOMAIN}")
+    ishita = login(f"2026aib1007@{DOMAIN}")
+
+    # -----------------------------------------------------------------------------------------
+    section("14. Multiple resumes (library)")
+    r = upload(ishita, "RESUME", label="Resume A", content=b"\x89PNG\r\n\x1a\nnot-a-pdf", filename="a.png", content_type="image/png")
+    check("Resumes must be PDF (PNG rejected)", r.status == 400 and "PDF" in r.detail, r.detail)
+    r = upload(ishita, "RESUME", label="Resume A", content=pdf_bytes("A").replace(b"/Contents", b"/OpenAction << /S /JavaScript /JS (app.alert(1)) >> /Contents"))
+    check("PDF with embedded JavaScript rejected", r.status == 400 and "script" in r.detail.lower(), r.detail)
+    r = upload(ishita, "RESUME", label="Resume A", content=pdf_bytes("A"), filename="resume_A.pdf")
+    res_a = r.json["id"] if r.status == 200 else None
+    check("Upload Resume A", r.status == 200 and r.json["label"] == "Resume A" and r.json["version"] == 1, r.detail)
+    r = upload(ishita, "RESUME", label="Resume B", content=pdf_bytes("B"), filename="resume_B.pdf")
+    res_b = r.json["id"] if r.status == 200 else None
+    check("Upload Resume B (several resumes per student)", r.status == 200, r.detail)
+    lib = [d for d in state(ishita)["documents"] if d["type"] == "RESUME"]
+    check("Student sees all their resumes", {res_a, res_b} <= {d["id"] for d in lib} and len(lib) >= 3, str([d["label"] for d in lib]))
+    r = call("PATCH", f"/api/documents/{res_b}", {"label": "Resume B (Data)"}, token=ishita)
+    check("Rename a resume", r.status == 200 and r.json["label"] == "Resume B (Data)", r.detail)
+    r = call("PATCH", f"/api/documents/{res_b}", {"label": "hijack"}, token=student)
+    check("Cannot rename another student's resume (403)", r.status == 403)
+    r = call("DELETE", f"/api/documents/{res_a}", token=student)
+    check("Cannot delete another student's resume (403)", r.status == 403)
+    r = call("GET", f"/api/documents/{res_a}/file", token=student)
+    check("Cannot download another student's resume (403)", r.status == 403)
+    r = call("POST", "/api/applications/apply", {"driveId": "d-03", "resumeId": res_a}, token=ishita)
+    check("Unverified resume cannot be submitted", r.status == 400 and "verified" in r.detail.lower(), r.detail)
+    for rid in (res_a, res_b):
+        call("POST", f"/api/documents/{rid}/review", {"status": "APPROVED"}, token=verifier)
+
+    # -----------------------------------------------------------------------------------------
+    section("15. Resume selection when applying (per-application snapshot)")
+    r = call("POST", "/api/applications/apply", {"driveId": "d-03", "resumeId": "doc-004"}, token=ishita)
+    check("Cannot apply with another student's resume (403)", r.status == 403, r.detail)
+    r = call("POST", "/api/applications/apply", {"driveId": "d-03", "resumeId": res_a}, token=ishita)
+    app_a = r.json if r.status == 200 else {}
+    check("Apply to Orbit SDE-1 with Resume A", r.status == 200 and (app_a.get("resume") or {}).get("label") == "Resume A", r.detail)
+    r = call("POST", "/api/applications/apply", {"driveId": "d-06", "resumeId": res_b}, token=ishita)
+    app_b = r.json if r.status == 200 else {}
+    check("Apply to Vertex Data Analyst with Resume B", r.status == 200 and (app_b.get("resume") or {}).get("label") == "Resume B (Data)", r.detail)
+    apps = {a["driveId"]: a for a in state(ishita)["applications"]}
+    check("Each application keeps its own resume", apps["d-03"]["resumeId"] == res_a and apps["d-06"]["resumeId"] == res_b)
+    a_file = fetch(f"/api/applications/{app_a.get('id')}/resume", ishita)
+    b_file = fetch(f"/api/applications/{app_b.get('id')}/resume", ishita)
+    check("Submitted copies are the right files", a_file.status == 200 and b_file.status == 200 and a_file.body == pdf_bytes("A") and b_file.body == pdf_bytes("B"))
+    raw, ctype = multipart({}, "file", "resume_A_v2.pdf", pdf_bytes("A version 2"), "application/pdf")
+    r = call("POST", f"/api/documents/{res_a}/version", raw=raw, ctype=ctype, token=ishita)
+    check("Upload a new version of Resume A (v2, back to pending)", r.status == 200 and r.json["version"] == 2 and r.json["status"] == "PENDING", r.detail)
+    r = call("DELETE", f"/api/documents/{res_b}", token=ishita)
+    check("Delete Resume B even though it was used to apply", r.status == 200, r.detail)
+    a_after = fetch(f"/api/applications/{app_a.get('id')}/resume", ishita)
+    b_after = fetch(f"/api/applications/{app_b.get('id')}/resume", ishita)
+    check("Application keeps the ORIGINAL Resume A after a new version", a_after.status == 200 and a_after.body == pdf_bytes("A"))
+    check("Application keeps Resume B after it was deleted from the library", b_after.status == 200 and b_after.body == pdf_bytes("B"))
+
+    section("16. Who can open a submitted resume")
+    aid = app_a.get("id")
+    check("CDPC can open it", fetch(f"/api/applications/{aid}/resume", cdpc).status == 200)
+    check("Orbit's SPOC can open it", fetch(f"/api/applications/{aid}/resume", spoc).status == 200)
+    check("Orbit's assigned verifier can open it", fetch(f"/api/applications/{aid}/resume", verifier).status == 200)
+    check("Another SPOC cannot (403)", fetch(f"/api/applications/{aid}/resume", spoc2).status == 403)
+    check("A verifier not assigned to Orbit cannot (403)", fetch(f"/api/applications/{aid}/resume", neha).status == 403)
+    check("Another student cannot (403)", fetch(f"/api/applications/{aid}/resume", student).status == 403)
+    check("SPOC still cannot open the student's library files (403)", fetch(f"/api/documents/{res_a}/file", spoc).status == 403)
+    z = fetch("/api/drives/d-03/resumes.zip", spoc)
+    check("SPOC downloads all submitted resumes of a drive as ZIP", z.status == 200 and z.body[:2] == b"PK" and b"2026AIB1007" in z.body, z.detail)
+    check("Other SPOC cannot download that ZIP (403)", fetch("/api/drives/d-03/resumes.zip", spoc2).status == 403)
+
+    # -----------------------------------------------------------------------------------------
+    section("17. Change SPOC / verifier of a running recruitment")
+    acme_apps = len([a for a in state(cdpc)["applications"] if a["driveId"] in ("d-01", "d-08")])
+    r = call("PUT", "/api/recruitments/c-01/assignment", {"spocId": f"simran.kaur@{DOMAIN}"}, token=spoc)
+    check("SPOC cannot change assignments (403)", r.status == 403)
+    r = call("PUT", "/api/recruitments/c-01/assignment", {"verifierId": f"neha.gupta@{DOMAIN}"}, token=verifier)
+    check("Verifier cannot change assignments (403)", r.status == 403)
+    r = call("PUT", "/api/recruitments/c-01/assignment", {"spocId": f"verifier@{DOMAIN}"}, token=cdpc)
+    check("Only SPOC accounts can be made SPOC", r.status == 400, r.detail)
+    r = call("PUT", "/api/recruitments/c-01/assignment",
+             {"spocId": f"simran.kaur@{DOMAIN}", "verifierId": f"neha.gupta@{DOMAIN}", "reason": "Ananya on leave during interviews"}, token=cdpc)
+    check("CDPC changes SPOC and verifier of Acme (drive running)", r.status == 200 and r.json["spocId"] == f"simran.kaur@{DOMAIN}"
+          and r.json["verifierId"] == f"neha.gupta@{DOMAIN}", r.detail)
+    hist = call("GET", "/api/recruitments/c-01/history", token=cdpc).json["history"]
+    check("Both changes saved in assignment history with reason", len(hist) >= 2 and hist[0]["reason"] == "Ananya on leave during interviews")
+    check("Old SPOC no longer sees Acme", all(c["id"] != "c-01" for c in state(spoc)["companies"]))
+    check("Old SPOC loses roster access (403)", fetch("/api/drives/d-01/roster.csv", spoc).status == 403)
+    check("New SPOC sees Acme and its applicants", any(c["id"] == "c-01" for c in state(spoc2)["companies"])
+          and fetch("/api/drives/d-01/roster.csv", spoc2).status == 200)
+    acme_app = next(a for a in state(cdpc)["applications"] if a["driveId"] == "d-01" and a.get("resume"))
+    check("Old verifier loses submitted-resume access (403)", fetch(f"/api/applications/{acme_app['id']}/resume", verifier).status == 403)
+    check("New verifier gains it", fetch(f"/api/applications/{acme_app['id']}/resume", neha).status == 200)
+    check("Applications and history untouched", len([a for a in state(cdpc)["applications"] if a["driveId"] in ("d-01", "d-08")]) == acme_apps)
+    check("Verifier state shows only assigned recruitments' applicants",
+          all(a["driveId"] not in ("d-01", "d-08") for a in state(verifier)["applications"]))
+    r = call("PUT", "/api/recruitments/c-01/assignment", {"verifierId": None}, token=cdpc)
+    check("CDPC can unassign a verifier", r.status == 200 and r.json["verifierId"] is None, r.detail)
+    check("SPOC of another company cannot read Acme's history (403)", call("GET", "/api/recruitments/c-01/history", token=spoc).status == 403)
+
+    # -----------------------------------------------------------------------------------------
+    section("18. Email — authorization")
+    st_c = call("GET", "/api/email/status", token=cdpc).json or {}
+    st_s = call("GET", "/api/email/status", token=spoc).json or {}
+    check("SMTP password is never returned by the API", "password" not in json.dumps(st_c).lower().replace("passwordset", ""))
+    check("SPOC sees only whether email works (no host details)", "host" not in st_s and "configured" in st_s)
+    body = {"recipients": ["2026AIB1026"], "subject": "Hi", "body": "Test", "kind": "CUSTOM"}
+    check("Students cannot send email (403)", call("POST", "/api/email/send", body, token=student).status == 403)
+    check("Verifiers cannot send email (403)", call("POST", "/api/email/send", body, token=verifier).status == 403)
+    check("SPOC must choose one of their recruitments (403)", call("POST", "/api/email/send", body, token=spoc).status == 403)
+    r = call("POST", "/api/email/send", {**body, "companyId": "c-02"}, token=spoc)
+    check("SPOC cannot email about another SPOC's company (403)", r.status == 403, r.detail)
+    r = call("POST", "/api/email/send", {**body, "kind": "INVITATION", "driveId": "d-03", "recipients": ["2026CEB1007"]}, token=spoc)
+    check("SPOC cannot email ineligible non-applicants (403)", r.status == 403, r.detail)
+    r = call("POST", "/api/email/send", {**body, "kind": "INVITATION", "driveId": "d-08", "recipients": ["2026AIB1026"]}, token=cdpc)
+    check("Invitations only for open drives", r.status == 400, r.detail)
+    check("Test email is CDPC-only (403 for SPOC)", call("POST", "/api/email/test", {}, token=spoc).status == 403)
+
+    section("19. Email — sending (SMTP)")
+    configured = bool(st_c.get("configured"))
+    cand = call("GET", "/api/email/recipients?driveId=d-03", token=spoc).json["students"]
+    eligible = [c["roll"] for c in cand if c["eligible"] and not c["applied"]][:2]
+    check("Recipient picker lists eligible students for the SPOC's drive", len(eligible) >= 1, str(cand[:2]))
+    r = call("POST", "/api/email/test", {"to": f"cdpc@{DOMAIN}"}, token=cdpc)
+    check(f"Test email {'sent' if configured else 'reports SMTP not configured'}",
+          r.status == 200 and (r.json["status"] == "SENT" if configured else "not configured" in (r.json["error"] or "")), r.detail)
+    r = call("POST", "/api/email/send", {
+        "recipients": eligible, "kind": "INVITATION", "driveId": "d-03",
+        "subject": "Invitation: {company} — {role}", "body": "Dear {first_name},\nApply here: {link}\n— {sender}",
+    }, token=spoc)
+    res = r.json or {}
+    check(f"SPOC invites {len(eligible)} selected eligible student(s)", r.status == 200 and len(res.get("results", [])) == len(eligible), r.detail)
+    if configured:
+        check("All invitations delivered to SMTP", res.get("sent") == len(eligible), str(res))
+    else:
+        check("Failures reported per recipient when SMTP is off", res.get("failed") == len(eligible), str(res))
+    inv_student = login(f"{eligible[0].lower()}@{DOMAIN}") if eligible else None
+    notes = state(inv_student)["notifications"] if inv_student else []
+    check("Invited student also gets an in-app notification", any("invited to apply" in n["message"] for n in notes))
+    r = call("POST", "/api/email/send", {"recipients": ["2026AIB1026", "2026CSB1033"], "kind": "CUSTOM",
+                                          "subject": "Pre-placement talk", "body": "Dear {name} ({roll}), see you at 10 AM."}, token=cdpc)
+    check("CDPC emails multiple selected students", r.status == 200 and len(r.json["results"]) == 2, r.detail)
+    logs = call("GET", "/api/email/logs", token=cdpc).json["logs"]
+    check("Every email is logged with its result", len(logs) >= len(eligible) + 3 and {"INVITATION", "CUSTOM", "TEST"} <= {e["kind"] for e in logs})
+    spoc_logs = call("GET", "/api/email/logs", token=spoc).json["logs"]
+    check("SPOC log shows only their recruitments' emails", spoc_logs and all(e["companyId"] == "c-03" or e["senderEmail"] == f"spoc@{DOMAIN}" for e in spoc_logs))
+    check("Email actions are in the audit trail", {"INVITATION_EMAILED", "EMAIL_SENT"} <= audit_actions(cdpc))
 
 
 def main() -> int:

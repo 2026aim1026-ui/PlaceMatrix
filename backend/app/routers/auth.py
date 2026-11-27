@@ -22,7 +22,7 @@ DEMO_ACCOUNTS = [
     {"key": "student", "label": "Student", "email": "2026aim1028@iitrpr.ac.in", "name": "Rohan Verma", "hint": "M.Tech AI · Verified & locked"},
     {"key": "verifier", "label": "Verifier", "email": "verifier@iitrpr.ac.in", "name": "Dr. Subrat Kar", "hint": "Faculty verification desk"},
     {"key": "spoc", "label": "SPOC", "email": "spoc@iitrpr.ac.in", "name": "Ananya Sharma", "hint": "Acme, Orbit, Vertex, Atlas"},
-    {"key": "ccpc", "label": "CCPC Admin", "email": "ccpc@iitrpr.ac.in", "name": "CCPC Office", "hint": "Full governance access"},
+    {"key": "cdpc", "label": "CDPC Admin", "email": "cdpc@iitrpr.ac.in", "name": "CDPC Office", "hint": "Full governance access"},
 ]
 
 
@@ -58,7 +58,7 @@ def session_out(actor: Actor, token: str | None = None) -> dict:
         "email": u.email,
         "name": u.name,
         "title": u.title,
-        "canVerify": u.can_verify or u.role == "CCPC",
+        "canVerify": u.can_verify or u.role == "CDPC",
         "linkedStudentId": u.linked_student_roll,
         "backTo": actor.back_to,
     }
@@ -82,18 +82,18 @@ def _find_user_for_login(db: Session, email: str) -> User:
     invite = db.scalar(select(Invitation).where(Invitation.email == e))
     if user is None:
         if invite and invite.status == "NOT_INVITED":
-            raise forbidden("You have not been invited yet. Placement invitations are sent by CCPC.")
+            raise forbidden("You have not been invited yet. Placement invitations are sent by CDPC.")
         if invite and invite.status == "DECLINED":
-            raise forbidden("This invitation was declined. Ask CCPC to re-invite you.")
+            raise forbidden("This invitation was declined. Ask CDPC to re-invite you.")
         raise HTTPException(404, "No account found for this college email.")
     if not user.is_active:
-        raise forbidden("This account has been deactivated. Contact the CCPC office.")
+        raise forbidden("This account has been deactivated. Contact the CDPC office.")
     if user.role == "STUDENT":
         has_profile = db.scalar(select(Student.roll).where(Student.user_email == e)) is not None
         if not has_profile and invite and invite.status == "DECLINED":
-            raise forbidden("This invitation was declined. Ask CCPC to re-invite you.")
+            raise forbidden("This invitation was declined. Ask CDPC to re-invite you.")
         if not has_profile and invite and invite.status == "NOT_INVITED":
-            raise forbidden("You have not been invited yet. Placement invitations are sent by CCPC.")
+            raise forbidden("You have not been invited yet. Placement invitations are sent by CDPC.")
     return user
 
 
@@ -101,7 +101,7 @@ def _find_user_for_login(db: Session, email: str) -> User:
 def login(body: LoginIn, db: Session = Depends(get_db)):
     user = _find_user_for_login(db, body.email)
     if not user.password_hash:
-        raise forbidden("Account not activated yet. Open the activation link from your CCPC invitation"
+        raise forbidden("Account not activated yet. Open the activation link from your CDPC invitation"
                         + (" or use Google sign-in." if settings.google_client_id else "."))
     if not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Incorrect password." + (f' Demo accounts use "{settings.demo_password}".' if settings.demo_mode else ""))
@@ -156,7 +156,7 @@ def activate(body: ActivateIn, db: Session = Depends(get_db)):
     if inv is None or inv.status != "INVITED":
         raise bad("This activation link is invalid or has already been used.")
     if inv.token_expires_at is not None and inv.token_expires_at < utcnow():
-        raise bad("This activation link has expired. Ask CCPC to resend the invitation.")
+        raise bad("This activation link has expired. Ask CDPC to resend the invitation.")
     user = db.get(User, inv.email)
     if user is None:
         user = User(email=inv.email, name=inv.name, role="STUDENT", title="Student")
@@ -221,6 +221,7 @@ def public_config():
         "allowedDomain": settings.allowed_email_domain,
         "googleClientId": settings.google_client_id or None,
         "maxUploadMb": settings.max_upload_bytes // (1024 * 1024),
+        "maxResumes": settings.max_resumes,
     }
 
 

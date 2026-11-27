@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 from pathlib import Path
 from typing import Any
 
@@ -16,14 +17,13 @@ from sqlalchemy.orm import Session
 from .. import serializers as S
 from ..config import settings
 from ..database import get_db
-from ..models import Application, Document, Student, Ticket
+from ..models import Document, Student, Ticket
 from ..rules import (
     ACADEMIC_FIELDS,
     BRANCH_CODES,
     CONTACT_FIELDS,
     DEGREES,
     DOC_TYPE_META,
-    TERMINAL_STAGES,
     claimed_value,
     missing_for_submission,
     to_decimal,
@@ -34,7 +34,7 @@ from ..services import Actor, bad, conflict, forbidden, get_actor, log, not_foun
 
 router = APIRouter(prefix="/api", tags=["profile & documents"])
 
-ALLOWED_TYPES = {"application/pdf": b"%PDF"}
+ALLOWED_TYPES = {"application/pdf": b"%PDF", "image/png": b"\x89PNG", "image/jpeg": b"\xff\xd8\xff"}
 
 FIELD_LABELS = {
     "cgpa": "Overall CGPA",
@@ -200,21 +200,15 @@ async def upload_document(
         raise bad("Academic documents cannot be changed while your profile is under verification.")
     if type in ("RESUME", "CERTIFICATE", "OTHER") and not (label or "").strip():
         raise bad('Give this document a name, e.g. "Data Resume".')
+    if type == "RESUME":
+        count = len(db.scalars(select(Document.doc_id).where(Document.roll == s.roll, Document.doc_type == "RESUME")).all())
+        if count >= settings.max_resumes:
+            raise bad(f"You can keep up to {settings.max_resumes} resumes. Delete one or upload a new version of an existing resume.")
+        if len((label or "").strip()) > 80:
+            raise bad("Resume name must be 80 characters or fewer.")
 
-    content_type = (file.content_type or "").lower()
-    if content_type == "image/jpg":
-        content_type = "image/jpeg"
-    data = await file.read(settings.max_upload_bytes + 1)
-    if not data:
-        raise bad("File is empty")
-    if len(data) > settings.max_upload_bytes:
-        raise bad(f"File is too large. Maximum is {settings.max_upload_bytes // (1024 * 1024)} MB.")
-    magic = ALLOWED_TYPES.get(content_type)
-    if magic is None or not data.startswith(magic):
-        raise bad("Unsupported or corrupted file. Allowed: PDF only.")
-
+    data, content_type, ext, safe_name = await _read_upload(file, pdf_only=type == "RESUME")
     doc_id = short_id("doc")
-    ext = {"application/pdf": ".pdf"}[content_type]
     folder = settings.upload_dir / s.roll
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{doc_id}{ext}"
@@ -228,7 +222,7 @@ async def upload_document(
     has_resume = db.scalar(select(Document.doc_id).where(Document.roll == s.roll, Document.doc_type == "RESUME").limit(1))
     doc = Document(
         doc_id=doc_id, roll=s.roll, doc_type=type, label=(label or "").strip() or None,
-        file_name=Path(file.filename or f"{doc_id}{ext}").name[:255], file_type=content_type, size_bytes=len(data),
+        file_name=safe_name, file_type=content_type, size_bytes=len(data),
         file_path=str(path.relative_to(settings.upload_dir)), status="PENDING", remarks="",
         claimed_value=claimed_value(type, s), is_default=False,
     )
@@ -247,6 +241,37 @@ async def upload_document(
         path.unlink(missing_ok=True)
         raise
     return S.document_out(doc)
+
+
+_SAFE_NAME = re.compile(r"[^A-Za-z0-9._()\- ]+")
+
+
+async def _read_upload(file: UploadFile, *, pdf_only: bool) -> tuple[bytes, str, str, str]:
+    """Read and validate an upload: size limit, type checked by content (magic bytes), PDF sanity checks.
+    Returns (bytes, content type, extension, sanitised file name)."""
+    content_type = (file.content_type or "").lower()
+    if content_type == "image/jpg":
+        content_type = "image/jpeg"
+    data = await file.read(settings.max_upload_bytes + 1)
+    if not data:
+        raise bad("File is empty")
+    if len(data) > settings.max_upload_bytes:
+        raise bad(f"File is too large. Maximum is {settings.max_upload_bytes // (1024 * 1024)} MB.")
+    if data.startswith(b"%PDF"):
+        content_type = "application/pdf"  # trust the content, not the browser's label
+    magic = ALLOWED_TYPES.get(content_type)
+    if magic is None or not data.startswith(magic):
+        raise bad("Resumes must be PDF files." if pdf_only else "Unsupported or corrupted file. Allowed: PDF, PNG, JPG.")
+    if pdf_only and content_type != "application/pdf":
+        raise bad("Resumes must be PDF files.")
+    if content_type == "application/pdf":
+        if b"%%EOF" not in data[-4096:]:
+            raise bad("This PDF looks incomplete or corrupted. Export it again and retry.")
+        if re.search(rb"/(JavaScript|JS|Launch)\b", data):
+            raise bad("PDFs with embedded scripts or launch actions are not accepted. Re-export it as a plain PDF.")
+    ext = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg"}[content_type]
+    stem = _SAFE_NAME.sub("_", Path(file.filename or "document").stem).strip(" ._")[:100] or "document"
+    return data, content_type, ext, f"{stem}{ext}"
 
 
 def _delete_file(doc: Document) -> None:
@@ -269,10 +294,7 @@ def remove_document(doc_id: str, actor: Actor = Depends(get_actor), db: Session 
     s = _own_student(actor, doc.roll)
     if DOC_TYPE_META[doc.doc_type]["academic"] and (s.locked or s.verification == "PENDING"):
         raise bad("Verified or under-review academic documents cannot be removed.")
-    used = db.scalar(select(Application.application_id).where(
-        Application.resume_doc_id == doc_id, Application.stage.not_in(TERMINAL_STAGES)).limit(1))
-    if used:
-        raise bad("This resume is attached to an active application and cannot be removed.")
+    # Resumes can be deleted even if they were used to apply: every application keeps its own frozen copy.
     was_default = s.default_resume_id == doc_id
     if was_default:
         s.default_resume_id = None
@@ -314,7 +336,7 @@ def download_document(doc_id: str, actor: Actor = Depends(get_actor), db: Sessio
     doc = _get_doc(db, doc_id)
     allowed = (
         (actor.role == "STUDENT" and actor.roll == doc.roll)
-        or actor.role in ("VERIFIER", "CCPC")
+        or actor.role in ("VERIFIER", "CDPC")
     )
     if not allowed:
         raise forbidden("You cannot view this student's documents.")
@@ -324,7 +346,55 @@ def download_document(doc_id: str, actor: Actor = Depends(get_actor), db: Sessio
     if settings.upload_dir not in path.parents or not path.exists():
         raise not_found("File")
     media = doc.file_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    return FileResponse(path, media_type=media, filename=doc.file_name, content_disposition_type="inline")
+    return FileResponse(path, media_type=media, filename=doc.file_name, content_disposition_type="inline",
+                        headers={"X-Content-Type-Options": "nosniff"})
+
+
+class RenameIn(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+
+
+@router.patch("/documents/{doc_id}")
+def rename_document(doc_id: str, body: RenameIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
+    """Rename a resume / certificate in the student's own library."""
+    doc = _get_doc(db, doc_id)
+    s = _own_student(actor, doc.roll)
+    if DOC_TYPE_META[doc.doc_type]["academic"]:
+        raise bad("Academic proofs cannot be renamed.")
+    old, doc.label = doc.label, body.label.strip()
+    log(db, actor, "Document", "DOCUMENT_RENAMED", f"{s.roll} renamed '{old or doc.file_name}' to '{doc.label}'.")
+    db.commit()
+    return S.document_out(doc)
+
+
+@router.post("/documents/{doc_id}/version")
+async def upload_new_version(doc_id: str, file: UploadFile = File(...), actor: Actor = Depends(get_actor),
+                             db: Session = Depends(get_db)):
+    """Replace a resume in the library with a new file (version + 1). It goes back to the verifier's resume
+    queue. Applications already submitted keep the exact copy they were submitted with."""
+    doc = _get_doc(db, doc_id)
+    s = _own_student(actor, doc.roll)
+    if doc.doc_type != "RESUME":
+        raise bad("Only resumes have versions. Upload other documents again instead.")
+    data, content_type, ext, safe_name = await _read_upload(file, pdf_only=True)
+    folder = settings.upload_dir / s.roll
+    folder.mkdir(parents=True, exist_ok=True)
+    new_path = folder / f"{doc.doc_id}-v{doc.version + 1}{ext}"
+    new_path.write_bytes(data)
+    _delete_file(doc)
+    doc.file_path = str(new_path.relative_to(settings.upload_dir))
+    doc.file_name, doc.file_type, doc.size_bytes = safe_name, content_type, len(data)
+    doc.version += 1
+    doc.status, doc.remarks, doc.reviewed_by, doc.reviewed_at = "PENDING", "", None, None
+    doc.uploaded_at = utcnow()
+    log(db, actor, "Document", "RESUME_VERSION_UPLOADED",
+        f"{s.roll} uploaded version {doc.version} of resume '{doc.label or doc.file_name}' ({safe_name}).")
+    try:
+        db.commit()
+    except Exception:
+        new_path.unlink(missing_ok=True)
+        raise
+    return S.document_out(doc)
 
 
 class ReviewIn(BaseModel):
@@ -388,7 +458,7 @@ def create_ticket(body: TicketIn, actor: Actor = Depends(get_actor), db: Session
     if body.field not in FIELD_LABELS:
         raise bad("This field cannot be corrected through a ticket.")
     if s.placement == "PLACED":
-        raise bad("Your profile is policy-locked after placement (one-offer policy). Contact CCPC directly.")
+        raise bad("Your profile is policy-locked after placement (one-offer policy). Contact CDPC directly.")
     if not s.locked:
         raise bad("Tickets are available once your profile is verified and locked. Edit your record directly.")
     justification = body.justification.strip()
@@ -421,8 +491,8 @@ class ResolveIn(BaseModel):
 
 @router.post("/tickets/{ticket_id}/resolve")
 def resolve_ticket(ticket_id: str, body: ResolveIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """CCPC governance: approving a ticket unfreezes the profile for correction and re-verification."""
-    actor.require("CCPC")
+    """CDPC governance: approving a ticket unfreezes the profile for correction and re-verification."""
+    actor.require("CDPC")
     t = db.get(Ticket, ticket_id, with_for_update=True)
     if t is None:
         raise not_found("Ticket")

@@ -1,0 +1,670 @@
+================================================================================
+  PLACEMATRIX — FEATURE SETUP GUIDE  (version 1.1)
+  Step-by-step instructions for beginners
+================================================================================
+
+This guide explains how to run PlaceMatrix on your own computer and how to set up
+and use the features added in version 1.1:
+
+  1. Live database sync       - the database is the single source of truth; a change
+                                made directly in PostgreSQL shows on open pages within
+                                about 3 seconds.
+  2. Recruitment assignments  - the Admin (CDPC) can change the SPOC and the Verifier
+                                of any recruitment, even while its drives are running.
+  3. Email (SMTP)             - Admin and SPOCs can send placement invitations and
+                                custom emails to students through YOUR mail server.
+  4. Multiple resumes         - students keep several resumes (labels, versions,
+                                default, delete).
+  5. Resume choice on apply   - students pick which resume to submit for every
+                                application; a frozen copy is stored with it.
+
+CONTENTS
+  How to read this guide (example values vs. your secrets)
+  Quick start (if you have done this before)
+  A. Project setup
+  B. Database setup, migrations and schema check
+  C. SMTP (email) setup — with a complete Gmail example
+  D. Instructions for the Admin (CDPC), SPOCs and Verifiers
+  E. Instructions for students
+  F. Troubleshooting
+
+--------------------------------------------------------------------------------
+HOW TO READ THIS GUIDE
+--------------------------------------------------------------------------------
+
+Commands you type are indented and start with "  >". Do not type the ">".
+
+        > python -m app.migrate
+
+Values are marked like this:
+
+  [EXAMPLE]   A value that works as shown for local testing. You may keep it.
+  [YOURS]     A value only YOU know (an email address, a password, an App
+              Password). You must type it yourself. Nobody (and no file in this
+              project) can fill it in for you. Never share it, never paste it into
+              chat, screenshots or Git.
+
+All configuration lives in ONE file:  backend/.env
+  - It is a plain text file. Open it with Notepad / VS Code / TextEdit.
+  - Each line is NAME=value with no spaces around "=" and no quotes needed.
+  - Lines starting with # are comments.
+  - After every change to backend/.env you must RESTART the backend
+    (press Ctrl+C in the backend terminal, then start it again — see A5).
+
+Where things are:
+
+  PlaceMatrix/
+    backend/                     FastAPI server (Python)
+      .env                       YOUR settings (database, SMTP, ...) — keep private
+      .env.example               the same file with safe example values
+      app/                       server code
+      scripts/smoke_test.py      automatic test of every feature
+      scripts/dev_smtp_server.py local test mail server (no real email needed)
+      uploads/                   uploaded documents + submitted resume copies
+    frontend/                    React website
+    docker-compose.yml           starts PostgreSQL with Docker
+    README.md                    technical overview
+    PLACEMATRIX_FEATURE_SETUP_GUIDE.txt   (this file)
+
+--------------------------------------------------------------------------------
+QUICK START (if you have done this before)
+--------------------------------------------------------------------------------
+
+  Terminal 1 (database):   > docker compose up -d db
+  Terminal 2 (backend):    > cd backend
+                           > .venv\Scripts\activate          (Windows)
+                           > source .venv/bin/activate       (macOS / Linux)
+                           > python -m app.migrate           (keeps your data)
+                           > uvicorn app.main:app --reload --port 8000
+  Terminal 3 (frontend):   > cd frontend
+                           > npm run dev
+  Browser:                 http://localhost:5173
+
+================================================================================
+A. PROJECT SETUP
+================================================================================
+
+A1. Install the tools (one time)
+--------------------------------
+  - Python 3.10 or newer      https://www.python.org/downloads/
+        Windows: tick "Add python.exe to PATH" in the installer.
+        Check:   > python --version        (macOS/Linux may need: python3 --version)
+  - Node.js 18 or newer (LTS) https://nodejs.org/
+        Check:   > node --version
+  - PostgreSQL 14 or newer — EITHER
+        Docker Desktop  https://www.docker.com/products/docker-desktop/  (easiest)
+     OR PostgreSQL installer  https://www.postgresql.org/download/
+
+A2. Unzip the project
+---------------------
+  Unzip PlaceMatrix-fullstack.zip to a folder WITHOUT spaces if possible, e.g.
+      C:\projects\PlaceMatrix          (Windows)
+      ~/projects/PlaceMatrix           (macOS / Linux)
+
+  Open a terminal in that folder:
+      Windows: open the folder in File Explorer, click the address bar, type
+               cmd  and press Enter (or use PowerShell / VS Code terminal).
+      macOS:   Terminal -> type  cd  and a space, drag the folder in, press Enter.
+
+  If you are UPDATING an older PlaceMatrix copy that already has data:
+    - Keep your old backend/.env (or copy your values into the new one — the new
+      file adds the SMTP / resume / sync settings at the end of part C).
+    - Keep your old backend/uploads/ folder (it holds the uploaded files).
+    - You can reuse your old frontend/node_modules and backend/.venv folders
+      (no new packages were added), or simply reinstall them in A3/A4.
+    - Then follow B4 ("Upgrade an existing database") — NOT the seed command.
+
+A3. Backend (Python) — one time
+-------------------------------
+        > cd backend
+        > python -m venv .venv
+  Activate the virtual environment (do this in every new backend terminal):
+        > .venv\Scripts\activate                 (Windows, cmd / PowerShell)
+        > source .venv/bin/activate              (macOS / Linux)
+  Your prompt now starts with (.venv). Install the packages:
+        > pip install -r requirements.txt
+
+  Create your settings file if it does not exist yet:
+        > copy .env.example .env                 (Windows)
+        > cp .env.example .env                   (macOS / Linux)
+
+  PowerShell note: if activation is blocked, run once:
+        > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+A4. Frontend (React) — one time
+-------------------------------
+  Open a SECOND terminal in the project folder:
+        > cd frontend
+        > npm install
+
+A5. Starting and stopping (every time)
+--------------------------------------
+  1) Database running (part B).
+  2) Backend terminal (in backend/, with (.venv) active):
+        > uvicorn app.main:app --reload --port 8000
+     Wait for "Application startup complete".
+     Check in the browser:  http://localhost:8000/api/health
+     It must show  "status":"ok","database":"connected"
+  3) Frontend terminal (in frontend/):
+        > npm run dev
+     Open  http://localhost:5173
+  Stop either one with Ctrl+C in its terminal.
+
+  Demo accounts (password demo123 while DEMO_MODE=true):
+     cdpc@iitrpr.ac.in            Admin (CDPC)
+     spoc@iitrpr.ac.in            SPOC  (Ananya Sharma)
+     simran.kaur@iitrpr.ac.in     SPOC  (Simran Kaur)
+     verifier@iitrpr.ac.in        Verifier (Dr. Subrat Kar)
+     neha.gupta@iitrpr.ac.in      Verifier (Prof. Neha Gupta)
+     2026aib1007@iitrpr.ac.in     Student (Ishita Rao) — any seeded roll number works
+
+================================================================================
+B. DATABASE SETUP, MIGRATIONS AND SCHEMA CHECK
+================================================================================
+
+B1. Start PostgreSQL
+--------------------
+  Option 1 — Docker (recommended). Start Docker Desktop, then in the project folder:
+        > docker compose up -d db
+     This creates database "placematrix", user "placematrix", password
+     "placematrix" [EXAMPLE] on port 5432. Your data is kept in a Docker volume,
+     so it survives restarts. Stop it with:  > docker compose stop db
+
+  Option 2 — PostgreSQL installed on your computer. Open "SQL Shell (psql)"
+     (Windows) or a terminal (macOS/Linux:  psql -U postgres) and run:
+        CREATE USER placematrix WITH PASSWORD 'placematrix';
+        CREATE DATABASE placematrix OWNER placematrix;
+     You may use another password [YOURS] — then use it in B2.
+
+B2. Tell the backend where the database is
+------------------------------------------
+  In backend/.env:
+        DATABASE_URL=postgresql+psycopg://placematrix:placematrix@localhost:5432/placematrix
+                                         ^user       ^password   ^host     ^port ^database
+  The value above is the [EXAMPLE] for the Docker database. If you chose your own
+  password in B1, replace the second "placematrix" with it [YOURS].
+  (If the password contains @ : / or #, write it URL-encoded, e.g. @ as %40.)
+
+B3. FIRST-TIME setup with demo data  (ONLY for a new, empty database)
+---------------------------------------------------------------------
+  In backend/ with (.venv) active:
+        > python -m app.seed
+  WARNING: this DELETES everything in the database and loads the demo data.
+  Never run it on a database whose data you want to keep.
+  (Empty tables without demo data:  > python -m app.init_db   — also destructive.)
+
+B4. Upgrade an EXISTING database (keeps all data)
+-------------------------------------------------
+  Version 1.1 changes the database. The changes are "migrations": numbered
+  steps recorded in the table schema_migrations. Every step only ADDS tables,
+  columns, indexes, triggers and foreign keys. Nothing is dropped or overwritten,
+  and running it twice is harmless.
+
+  0) (Recommended) Back up first:
+        > docker exec placematrix-db pg_dump -U placematrix placematrix > backup.sql
+     or with local PostgreSQL:
+        > pg_dump -U placematrix -h localhost placematrix > backup.sql
+     Also copy the backend/uploads/ folder somewhere safe.
+
+  1) See which versions are applied:
+        > python -m app.migrate --status
+  2) Apply the missing ones:
+        > python -m app.migrate
+     Expected output for an old 1.0 database:
+        Applied migration 0001 — baseline schema
+        Applied migration 0002 — recruitment assignments, email logs, resume snapshots, live sync
+        Applied migration 0003 — rename admin role CCPC to CDPC
+        Applied: 0001, 0002, 0003
+     (0001 only records your existing tables; it changes nothing in them.)
+     Running it again prints "Database is already up to date."
+
+  Automatic option: with AUTO_MIGRATE=true in backend/.env (the default), the
+  backend applies pending migrations itself every time it starts. Starting
+  uvicorn is therefore enough. Only one backend process migrates at a time
+  (a database lock prevents two from colliding).
+
+  What migration 0002 adds:
+    - companies.assigned_verifier  (who verifies each recruitment) + foreign key to users
+    - documents.version            (resume version number, starts at 1)
+    - applications.resume_label / resume_file_name / resume_file_type / resume_size /
+      resume_sha256 / resume_version / resume_snapshot_path / resume_submitted_at
+      (the frozen copy of the resume submitted with each application)
+    - new table assignment_history (every SPOC / verifier change, who, when, why)
+    - new table email_logs         (one row per email recipient: sent / failed + reason)
+    - table pm_sync + triggers on every table that send a notification on change
+      (this is what makes direct database edits appear on the website)
+    - for existing applications: copies the resume they used into
+      backend/uploads/submissions/ so old applications also have a frozen copy.
+      Put your old backend/uploads/ folder in place BEFORE migrating. If you
+      forget, nothing breaks: the copy is made automatically the first time the
+      submitted resume is opened after you restore the folder.
+
+  What migration 0003 does:
+    - renames the admin role stored in users.role from CCPC to CDPC (Career
+      Development & Placement Centre) and updates "CCPC" in admin titles/names.
+      Email addresses are not changed; old audit-log rows keep their original text.
+
+B5. Verify the schema
+---------------------
+  Open psql:
+        > docker exec -it placematrix-db psql -U placematrix placematrix      (Docker)
+        > psql postgresql://placematrix:placematrix@localhost:5432/placematrix (local)
+  Then:
+        \dt
+     You should see 15 tables, including assignment_history, email_logs,
+     schema_migrations and pm_sync.
+        SELECT version, name, applied_at FROM schema_migrations;
+     Three rows: 0001, 0002 and 0003.
+        \d applications
+     Shows the resume_* columns.
+        SELECT company_id, name, assigned_spoc, assigned_verifier FROM companies;
+  Type  \q  to leave psql.
+
+  The full reference schema is in backend/sql/schema.sql.
+
+B6. See live sync working (database = source of truth)
+------------------------------------------------------
+  1) Sign in as cdpc@iitrpr.ac.in and open "Recruitments".
+  2) In psql run:
+        UPDATE companies SET name = 'Acme Systems Pvt Ltd' WHERE company_id = 'c-01';
+  3) Within about 3 seconds the page shows the new name — no reload needed.
+     Pressing F5 also always shows the current database contents (the API sends
+     "Cache-Control: no-store", so the browser never shows stale data).
+  This works for any table and any tool (psql, pgAdmin, DBeaver, scripts).
+  Rows you INSERT directly must respect the constraints (foreign keys, CHECKs).
+  Setting REALTIME_SYNC=false turns the instant push off; pages then refresh
+  only when something changes through the website.
+
+================================================================================
+C. SMTP (EMAIL) SETUP
+================================================================================
+
+PlaceMatrix sends email through an SMTP server you choose (Gmail, Outlook /
+Microsoft 365, or your institute's mail relay). The credentials are read ONLY
+from backend/.env. They are never stored in the code, never stored in the
+database, and never sent to the browser (the Email Center only shows the host,
+port and whether a password is set).
+
+Without SMTP everything else still works: the Email Center shows
+"Not configured", sending is refused with a clear message, and the Admin can
+still copy onboarding activation links by hand.
+
+C1. The settings (all in backend/.env)
+--------------------------------------
+  SMTP_HOST        Address of the mail server.       Gmail: smtp.gmail.com [EXAMPLE]
+                   Empty = email switched off.
+  SMTP_PORT        587 (STARTTLS) or 465 (SSL).       Gmail: 587 [EXAMPLE]
+  SMTP_SECURITY    starttls | ssl | none.             Leave EMPTY to choose
+                   automatically (465 -> ssl, anything else -> starttls).
+                   "none" is only for the local test server (C6).
+                   (SMTP_TLS=true/false and SMTP_SSL=true/false also work.)
+  SMTP_USERNAME    Login name, usually your full email address.          [YOURS]
+  SMTP_PASSWORD    The password for SMTP. For Gmail this is a 16-character
+                   App Password (C2), NOT your normal Google password.    [YOURS]
+                   Spaces are ignored, so you may paste it as shown by Google.
+  SMTP_FROM_EMAIL  The "From" address students see. Gmail only accepts your own
+                   address (or an alias you verified in Gmail). Empty = same as
+                   SMTP_USERNAME.                                         [YOURS]
+  SMTP_FROM_NAME   The "From" name.  [EXAMPLE] CDPC IIT Ropar — PlaceMatrix
+  SMTP_TIMEOUT     Seconds to wait for the server before reporting failure. 20
+  EMAIL_MAX_RECIPIENTS   Most recipients in one send. 200
+  FRONTEND_URL     Used for the {link} in emails. http://localhost:5173 locally;
+                   the real website address in production.
+
+C2. Gmail step by step
+----------------------
+  You need: a Gmail account (or a Google Workspace account whose administrator
+  allows App Passwords). Gmail does NOT accept your normal password from apps.
+
+  Step 1 — Turn on 2-Step Verification
+     a) Open https://myaccount.google.com/security and sign in.
+     b) Under "How you sign in to Google", click "2-Step Verification".
+     c) Follow the steps (phone number or authenticator app) until it says ON.
+     Without 2-Step Verification the App Passwords page does not exist.
+
+  Step 2 — Create an App Password
+     a) Open https://myaccount.google.com/apppasswords
+        (or search "App passwords" in the search box of your Google Account).
+     b) Type a name, e.g.  PlaceMatrix  and click "Create".
+     c) Google shows a 16-character password like  abcd efgh ijkl mnop.
+        That shown value is only an EXAMPLE of the format — yours is different.
+     d) Copy it now. Google shows it only once. (If you lose it, delete it on the
+        same page and create a new one.)
+     If you see "The setting you are looking for is not available for your
+     account": 2-Step Verification is off, or your organisation's admin has
+     disabled App Passwords (common for college Workspace accounts) — use a
+     personal Gmail account or ask the admin for the institute SMTP relay.
+
+  Step 3 — Put the values into backend/.env
+     Open backend/.env, find the "Email (SMTP)" block and fill it in:
+
+        SMTP_HOST=smtp.gmail.com                 <- [EXAMPLE] keep as is for Gmail
+        SMTP_PORT=587                            <- [EXAMPLE] keep as is for Gmail
+        SMTP_SECURITY=                           <- leave empty (= starttls on 587)
+        SMTP_USERNAME=yourname@gmail.com         <- [YOURS] your full Gmail address
+        SMTP_PASSWORD=abcdefghijklmnop           <- [YOURS] the App Password from Step 2
+        SMTP_FROM_EMAIL=yourname@gmail.com       <- [YOURS] same Gmail address
+        SMTP_FROM_NAME=CDPC IIT Ropar — PlaceMatrix   <- [EXAMPLE] any name you like
+
+     "yourname@gmail.com" and "abcdefghijklmnop" above are placeholders —
+     replace them with your real address and App Password. Save the file.
+
+     Alternative with SSL:  SMTP_PORT=465  and  SMTP_SECURITY=ssl
+
+  Step 4 — Restart the backend
+     In the backend terminal press Ctrl+C, then:
+        > uvicorn app.main:app --reload --port 8000
+     (The --reload option does NOT reload .env changes — a restart is needed.)
+
+  Step 5 — Send a test email
+     a) Sign in as cdpc@iitrpr.ac.in (Admin).
+     b) Open "Email Center". The SMTP card must say "Configured" and show
+        smtp.gmail.com : 587, security starttls, "password set".
+     c) Type your own email address in "Send a test email to" and click "Test".
+     d) Green "Sent to ..." = working. Check the inbox (and the Spam folder).
+        A red message tells you exactly what is wrong — see F5.
+
+  Sending limits: a personal Gmail account can send to about 500 recipients per
+  day (Google Workspace about 2,000). For large batches use an institute relay.
+
+C3. Outlook / Microsoft 365
+---------------------------
+        SMTP_HOST=smtp.office365.com     SMTP_PORT=587     SMTP_SECURITY=
+        SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM_EMAIL = your account [YOURS]
+  Many Microsoft 365 organisations disable SMTP sign-in ("SMTP AUTH"); if login
+  fails, ask your administrator to enable it for the mailbox.
+
+C4. Institute mail relay
+------------------------
+  Ask the IT department for: host, port, security (starttls/ssl), username,
+  password and the allowed From address, and put them in the same settings.
+
+C5. Keep the credentials safe
+-----------------------------
+  - backend/.env is listed in .gitignore, so Git does not upload it. If your
+    repository already tracked it before, run once:  git rm --cached backend/.env
+  - Share .env.example (safe placeholder values), never .env.
+  - If a password leaks: delete that App Password in your Google Account and
+    create a new one.
+  - The API never returns the SMTP password; SPOCs do not even see the host.
+
+C6. Testing without a real mailbox (local test mail server)
+-----------------------------------------------------------
+  The project includes a tiny mail server that accepts every email and saves it
+  as a .eml file (open it with Outlook / Thunderbird / any text editor).
+  Third terminal, in backend/ with (.venv) active:
+        > python scripts/dev_smtp_server.py
+  It listens on 127.0.0.1:1025 and saves emails to backend/sent_emails/.
+  In backend/.env set:
+        SMTP_HOST=127.0.0.1
+        SMTP_PORT=1025
+        SMTP_SECURITY=none
+        SMTP_USERNAME=test
+        SMTP_PASSWORD=test
+        SMTP_FROM_EMAIL=cdpc@iitrpr.ac.in
+  Restart the backend. Every email now appears in backend/sent_emails/.
+  To test the error handling, start it with  --reject-auth  : every login is
+  refused, and PlaceMatrix records each email as FAILED with the reason.
+  Switch back to your real SMTP values when you are done.
+
+C7. Placeholders you can use in subject and message
+---------------------------------------------------
+  {name} full name     {first_name}   {roll}   {branch}
+  {company}  {role}  {ctc}  {deadline}  (filled from the selected recruitment/drive)
+  {link}  link to the drive (or the student's applications page)
+  {sender}  your name
+  Each student receives a personalised copy; the preview in the compose window
+  shows exactly what the selected student will get.
+
+================================================================================
+D. INSTRUCTIONS FOR THE ADMIN (CDPC), SPOCs AND VERIFIERS
+================================================================================
+
+D1. Change the SPOC or Verifier of a recruitment (Admin only)
+-------------------------------------------------------------
+  1) Sign in as CDPC -> left menu "Recruitments".
+     Every company is listed with its drives, number of applicants, current SPOC,
+     current Verifier and the last change. Cards at the top count running
+     recruitments, recruitments without SPOC / without verifier and recent
+     reassignments. Use the search box and the "Show" filter to find one.
+  2) Click "Change" next to the SPOC or the Verifier.
+  3) Choose the new person (or "— Unassigned —") for SPOC and/or Verifier, and
+     optionally a reason. If drives are running you see a warning — that is
+     fine: changing during a running recruitment is supported.
+  4) Click "Save assignment". The change is saved in the database immediately.
+  What happens:
+     - The new SPOC sees the company in "Assigned Companies", its roster,
+       shortlist parser, submitted resumes and can email its students.
+     - The previous SPOC loses all of that on their very next request (no
+       re-login needed). Applications, stages, notes and history stay unchanged.
+     - The new Verifier sees it in "Assigned Recruitments" with its applicants'
+       submitted resumes; the previous verifier no longer does.
+     - The change is stored in assignment_history and the Audit Trail.
+     - If SMTP is configured, the new SPOC / Verifier gets a notification email.
+  5) The clock icon (history) on each row shows all earlier changes with who
+     made them, when and why.
+  The older "Companies & SPOCs" page offers the same SPOC / Verifier choice.
+
+D2. Invite students to apply (Admin, and SPOCs for their own recruitments)
+-------------------------------------------------------------------------
+  1) "Recruitments" -> "Invite" on the company's row
+     (SPOC: "Assigned Companies" -> "Invite" on the company card).
+  2) Type "Placement invitation" is selected. Choose the drive — it must be OPEN.
+  3) Select students: search by roll or name, filter by branch; "Eligible only"
+     shows students who meet the drive criteria; "Hide students who applied"
+     hides those who already applied. Tick students or tick the header box to
+     select all shown.
+  4) Edit the subject and message (a ready template is filled in; see C7 for
+     placeholders). The right side previews the email for the first selected
+     student.
+  5) Click "Send invitation". You get a result per student: sent, or failed
+     with the reason. Invited students also get an in-app notification.
+  6) Click "Done".
+
+D3. Send a custom email
+-----------------------
+  - Admin: "Email Center" -> "Compose" (any students, optionally linked to a
+    recruitment), or "Recruitments" -> "Email applicants", or
+    "Student Records" -> open a student -> "Email student".
+  - SPOC: "Assigned Companies" -> "Email", or "Applicant Roster" -> tick
+    applicants -> "Email selected".
+  Choose "Custom email", write subject and message, select recipients, send.
+  A SPOC can only email students who applied to, or are eligible for, a drive of
+  a recruitment assigned to them. The server refuses anything else, even if
+  someone calls the API directly. Students and verifiers cannot send email.
+
+D4. Email Center (history of every email)
+-----------------------------------------
+  - SMTP card: configured or not, host, port, security, From address (Admin only)
+    and a "Test" button (Admin only).
+  - Counters: emails logged, delivered, failed, invitations (click to filter).
+  - Table: time, type (INVITATION / CUSTOM / TEST / ASSIGNMENT / ONBOARDING),
+    recipient, subject, recruitment, sender and result. Failed rows show the
+    error. Filter by result and type, search by recipient or subject.
+  - A SPOC sees only emails of their own recruitments.
+  "Delivered" means the SMTP server accepted the message. Whether it reaches the
+  inbox afterwards (spam filters, a mistyped address) is up to the mail system.
+
+D5. Submitted resumes (Admin, assigned SPOC, assigned Verifier)
+---------------------------------------------------------------
+  - "Applicant Roster" -> choose a drive. The "Resume" column shows the resume
+    each student submitted; click it to view (and download) that exact copy.
+  - "Resumes (ZIP)" downloads every submitted resume of the drive in one file.
+  - The roster CSV export includes the submitted resume name.
+  - Verifier: "Assigned Recruitments" lists the recruitments assigned to you and
+    their applicants; click a resume to view it.
+  What is shown is the frozen copy taken when the student applied — it never
+  changes, even if the student later renames, replaces or deletes the resume.
+
+================================================================================
+E. INSTRUCTIONS FOR STUDENTS
+================================================================================
+
+E1. Manage your resumes ("Documents" page)
+------------------------------------------
+  - "Add resume": give it a label (e.g. "Software Resume", "Data Resume") and
+    choose a PDF file (PDF only, up to 5 MB — the limit is shown on the page).
+    You can keep up to 10 resumes (the counter shows how many you have).
+  - New resumes are "Pending" until a verifier approves them. Only APPROVED
+    resumes can be submitted with an application.
+  - "View": opens the PDF.
+  - "Rename": changes the label.
+  - "New version": uploads an updated PDF under the same label; the version
+    number goes up (v2, v3, ...) and it is reviewed again.
+  - "Set as default": the resume pre-selected when you apply.
+  - "Delete": removes it from your library. Applications you already submitted
+    keep their own copy, so deleting never affects them.
+
+E2. Apply with a chosen resume
+------------------------------
+  1) "Opportunities" -> click "Apply — choose resume" on a drive (or open the
+     drive and use the same button).
+  2) All your resumes are listed. Pick one with the round button. "Preview"
+     shows the PDF. Resumes that are not approved yet cannot be chosen.
+  3) Click "Submit with "<resume name>"".
+  4) The confirmation page shows which resume was submitted (name and version).
+  You may use different resumes for different applications.
+
+E3. See what you submitted
+--------------------------
+  "My Applications" -> click an application -> "View submitted copy" opens the
+  exact file sent with that application. It stays the same even if you change
+  your resume library afterwards.
+
+================================================================================
+F. TROUBLESHOOTING
+================================================================================
+
+F1. Backend will not start
+--------------------------
+  "uvicorn is not recognized" / "No module named fastapi"
+     -> The virtual environment is not active. Run the activate command (A3)
+        in this terminal, then try again.
+  "ModuleNotFoundError: No module named 'app'"
+     -> You are not in the backend/ folder:  > cd backend
+  "Address already in use" / port 8000
+     -> Another backend is still running. Close that terminal, or start on
+        another port (--port 8001) and update VITE_PROXY_TARGET for the frontend.
+  "SMTP_SECURITY must be starttls, ssl or none"
+     -> Fix the spelling in backend/.env (or leave it empty).
+  pip fails while building psycopg
+     -> > python -m pip install -U pip   then  > pip install -r requirements.txt
+
+F2. Frontend problems
+---------------------
+  Page says "Cannot reach the server" / "Could not load PlaceMatrix data"
+     -> The backend is not running on port 8000 (A5) — start it and reload.
+  "npm is not recognized"   -> Install Node.js (A1) and open a new terminal.
+  Blank page after updating -> stop npm run dev, run  > npm install , start again,
+                               press Ctrl+F5 in the browser.
+  New menu items missing    -> sign out and in again (the menu depends on role).
+
+F3. Database errors
+-------------------
+  "connection refused" (port 5432)
+     -> PostgreSQL is not running: > docker compose up -d db  (Docker Desktop
+        must be open) or start the PostgreSQL service.
+  "password authentication failed for user placematrix"
+     -> DATABASE_URL in backend/.env does not match the database user/password.
+  "database "placematrix" does not exist"
+     -> Create it (B1, Option 2).
+  http://localhost:8000/api/health shows "Internal Server Error"
+     -> The backend cannot reach the database — same causes as above; the
+        exact error is printed in the backend terminal.
+
+F4. Migration errors
+--------------------
+  "column ... does not exist" / "relation email_logs does not exist"
+     -> The database is older than the code. Run  > python -m app.migrate
+        (or restart the backend with AUTO_MIGRATE=true).
+  Migration stops with an error
+     -> Nothing is half-applied: each migration runs in one transaction and is
+        rolled back on error. Read the message (usually the database user lacks
+        rights: the user must own the tables — use the same user that created
+        them), fix it and run  > python -m app.migrate  again.
+  "permission denied to create extension/trigger"
+     -> Run the migration with the database owner (the user in DATABASE_URL
+        that created the tables).
+  Want to start over with demo data -> > python -m app.seed  (DELETES all data).
+
+F5. Email (SMTP) errors — the exact reason is shown in Email Center
+-------------------------------------------------------------------
+  "Email is not configured"
+     -> SMTP_HOST is empty. Fill in part C1 values and restart the backend.
+  "SMTP login failed ... (Gmail needs a 16-character App Password ...)"
+     (server code 535 or 534-5.7.9)
+     -> Wrong username/password, or you used your normal Gmail password.
+        Create an App Password (C2 Step 2), paste it into SMTP_PASSWORD, restart.
+        If you changed your Google password, old App Passwords stop working —
+        create a new one.
+  "Connection refused by host:port" / "Timed out connecting to host:port"
+     -> Wrong SMTP_HOST or SMTP_PORT, or the network blocks outgoing mail ports
+        (some college / office Wi-Fi does). Try 465 + SMTP_SECURITY=ssl, or
+        another network / mobile hotspot.
+  "could not be found (DNS)"
+     -> SMTP_HOST is misspelled (it must be e.g. smtp.gmail.com, no http://).
+  "TLS/SSL handshake failed" / "does not support this security mode" /
+  "closed the connection unexpectedly"
+     -> Port and security do not match: 587 needs starttls, 465 needs ssl.
+        Leaving SMTP_SECURITY empty picks the right one automatically.
+  "The server refused the sender address ..."
+     -> SMTP_FROM_EMAIL must be your own address (Gmail) or an allowed alias.
+  Some emails sent, some failed
+     -> The result list and Email Center show the reason per student (e.g. a
+        rejected recipient address or a daily sending limit reached).
+  "Sent" but nothing in the inbox
+     -> Look in Spam/Promotions; check the student's email address; with the
+        local test server the emails are files in backend/sent_emails/.
+  SPOC gets "You can only email students about recruitments currently assigned
+  to you" or "You are not authorised to email: <roll numbers>"
+     -> Correct behaviour: the recruitment was reassigned (D1), or those students
+        have not applied to / are not eligible for that SPOC's recruitment.
+  "Invitations can only be sent for open drives"
+     -> Choose an OPEN drive, or use "Custom email" instead.
+
+F6. Upload errors
+-----------------
+  "Only PDF files are accepted here" / "Resumes must be PDF files." /
+  "This PDF looks incomplete or corrupted"
+     -> Resumes must be real, complete PDF files. Re-export the document as PDF
+        (Word: File -> Save As -> PDF). Renaming .docx to .pdf does not work.
+  "File is too large. Maximum is 5 MB."
+     -> Compress the PDF, or raise MAX_UPLOAD_MB in backend/.env and restart.
+  "You can keep up to 10 resumes..."
+     -> Delete an old one, or raise MAX_RESUMES in backend/.env and restart.
+  "PDFs with embedded scripts or launch actions are not accepted"
+     -> The PDF has active content and is refused for safety; print it to a new
+        PDF ("Microsoft Print to PDF" / "Save as PDF") and upload that.
+  Apply button says no approved resume
+     -> Upload a resume and wait until a verifier approves it.
+
+F7. Authorization errors ("403 Forbidden" / "not allowed")
+----------------------------------------------------------
+  - Only the Admin (CDPC) can change SPOC / Verifier assignments.
+  - A SPOC can manage, view resumes of and email only their assigned
+    recruitments. After a reassignment, the old SPOC is refused immediately.
+  - A Verifier sees submitted resumes only for recruitments assigned to them.
+  - Students can only see, change and submit their own resumes.
+  - "Session expired — please sign in again" -> sign in again (sessions last TOKEN_TTL_HOURS).
+  If someone should have access but does not, the Admin checks the assignment
+  in "Recruitments" (D1) and the user's role in "Users & Roles".
+
+F8. Automatic self-test
+-----------------------
+  With the backend running, in backend/ (venv active):
+        > python scripts/smoke_test.py --db-check
+  It tests every feature through the real API and prints PASS/FAIL per check.
+  Expected: "167/167 checks passed". It resets the demo data, so use it on a
+  demo database only. Email sending checks need SMTP configured (C6 is ideal).
+
+================================================================================
+VALUES YOU MUST PROVIDE YOURSELF  (summary)
+================================================================================
+  Required for email:  SMTP_USERNAME, SMTP_PASSWORD (App Password),
+                       SMTP_FROM_EMAIL, and SMTP_HOST/SMTP_PORT of your provider.
+  For production:      SECRET_KEY (long random text), a strong database password
+                       in DATABASE_URL, DEMO_MODE=false, FRONTEND_URL and
+                       CORS_ORIGINS set to the real website address.
+  Optional:            GOOGLE_CLIENT_ID (Sign in with Google).
+  Everything else in backend/.env already has a working [EXAMPLE] value.
+================================================================================
