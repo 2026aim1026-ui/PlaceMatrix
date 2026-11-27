@@ -9,7 +9,7 @@ and use the features added in version 1.1:
   1. Live database sync       - the database is the single source of truth; a change
                                 made directly in PostgreSQL shows on open pages within
                                 about 3 seconds.
-  2. Recruitment assignments  - the Admin (CCPC) can change the SPOC and the Verifier
+  2. Recruitment assignments  - the Admin (CDPC) can change the SPOC and the Verifier
                                 of any recruitment, even while its drives are running.
   3. Email (SMTP)             - Admin and SPOCs can send placement invitations and
                                 custom emails to students through YOUR mail server.
@@ -24,7 +24,7 @@ CONTENTS
   A. Project setup
   B. Database setup, migrations and schema check
   C. SMTP (email) setup — with a complete Gmail example
-  D. Instructions for the Admin (CCPC), SPOCs and Verifiers
+  D. Instructions for the Admin (CDPC), SPOCs and Verifiers
   E. Instructions for students
   F. Troubleshooting
 
@@ -151,7 +151,7 @@ A5. Starting and stopping (every time)
   Stop either one with Ctrl+C in its terminal.
 
   Demo accounts (password demo123 while DEMO_MODE=true):
-     ccpc@iitrpr.ac.in            Admin (CCPC)
+     cdpc@iitrpr.ac.in            Admin (CDPC)
      spoc@iitrpr.ac.in            SPOC  (Ananya Sharma)
      simran.kaur@iitrpr.ac.in     SPOC  (Simran Kaur)
      verifier@iitrpr.ac.in        Verifier (Dr. Subrat Kar)
@@ -213,7 +213,8 @@ B4. Upgrade an EXISTING database (keeps all data)
      Expected output for an old 1.0 database:
         Applied migration 0001 — baseline schema
         Applied migration 0002 — recruitment assignments, email logs, resume snapshots, live sync
-        Applied: 0001, 0002
+        Applied migration 0003 — rename admin role CCPC to CDPC
+        Applied: 0001, 0002, 0003
      (0001 only records your existing tables; it changes nothing in them.)
      Running it again prints "Database is already up to date."
 
@@ -238,6 +239,11 @@ B4. Upgrade an EXISTING database (keeps all data)
       forget, nothing breaks: the copy is made automatically the first time the
       submitted resume is opened after you restore the folder.
 
+  What migration 0003 does:
+    - renames the admin role stored in users.role from CCPC to CDPC (Career
+      Development & Placement Centre) and updates "CCPC" in admin titles/names.
+      Email addresses are not changed; old audit-log rows keep their original text.
+
 B5. Verify the schema
 ---------------------
   Open psql:
@@ -248,7 +254,7 @@ B5. Verify the schema
      You should see 15 tables, including assignment_history, email_logs,
      schema_migrations and pm_sync.
         SELECT version, name, applied_at FROM schema_migrations;
-     Two rows: 0001 and 0002.
+     Three rows: 0001, 0002 and 0003.
         \d applications
      Shows the resume_* columns.
         SELECT company_id, name, assigned_spoc, assigned_verifier FROM companies;
@@ -258,7 +264,7 @@ B5. Verify the schema
 
 B6. See live sync working (database = source of truth)
 ------------------------------------------------------
-  1) Sign in as ccpc@iitrpr.ac.in and open "Recruitments".
+  1) Sign in as cdpc@iitrpr.ac.in and open "Recruitments".
   2) In psql run:
         UPDATE companies SET name = 'Acme Systems Pvt Ltd' WHERE company_id = 'c-01';
   3) Within about 3 seconds the page shows the new name — no reload needed.
@@ -351,7 +357,7 @@ C2. Gmail step by step
      (The --reload option does NOT reload .env changes — a restart is needed.)
 
   Step 5 — Send a test email
-     a) Sign in as ccpc@iitrpr.ac.in (Admin).
+     a) Sign in as cdpc@iitrpr.ac.in (Admin).
      b) Open "Email Center". The SMTP card must say "Configured" and show
         smtp.gmail.com : 587, security starttls, "password set".
      c) Type your own email address in "Send a test email to" and click "Test".
@@ -411,12 +417,12 @@ C7. Placeholders you can use in subject and message
   shows exactly what the selected student will get.
 
 ================================================================================
-D. INSTRUCTIONS FOR THE ADMIN (CCPC), SPOCs AND VERIFIERS
+D. INSTRUCTIONS FOR THE ADMIN (CDPC), SPOCs AND VERIFIERS
 ================================================================================
 
 D1. Change the SPOC or Verifier of a recruitment (Admin only)
 -------------------------------------------------------------
-  1) Sign in as CCPC -> left menu "Recruitments".
+  1) Sign in as CDPC -> left menu "Recruitments".
      Every company is listed with its drives, number of applicants, current SPOC,
      current Verifier and the last change. Cards at the top count running
      recruitments, recruitments without SPOC / without verifier and recent
@@ -634,7 +640,7 @@ F6. Upload errors
 
 F7. Authorization errors ("403 Forbidden" / "not allowed")
 ----------------------------------------------------------
-  - Only the Admin (CCPC) can change SPOC / Verifier assignments.
+  - Only the Admin (CDPC) can change SPOC / Verifier assignments.
   - A SPOC can manage, view resumes of and email only their assigned
     recruitments. After a reassignment, the old SPOC is refused immediately.
   - A Verifier sees submitted resumes only for recruitments assigned to them.

@@ -336,7 +336,7 @@ def download_document(doc_id: str, actor: Actor = Depends(get_actor), db: Sessio
     doc = _get_doc(db, doc_id)
     allowed = (
         (actor.role == "STUDENT" and actor.roll == doc.roll)
-        or actor.role in ("VERIFIER", "CCPC")
+        or actor.role in ("VERIFIER", "CDPC")
     )
     if not allowed:
         raise forbidden("You cannot view this student's documents.")
@@ -458,7 +458,7 @@ def create_ticket(body: TicketIn, actor: Actor = Depends(get_actor), db: Session
     if body.field not in FIELD_LABELS:
         raise bad("This field cannot be corrected through a ticket.")
     if s.placement == "PLACED":
-        raise bad("Your profile is policy-locked after placement (one-offer policy). Contact CCPC directly.")
+        raise bad("Your profile is policy-locked after placement (one-offer policy). Contact CDPC directly.")
     if not s.locked:
         raise bad("Tickets are available once your profile is verified and locked. Edit your record directly.")
     justification = body.justification.strip()
@@ -491,8 +491,8 @@ class ResolveIn(BaseModel):
 
 @router.post("/tickets/{ticket_id}/resolve")
 def resolve_ticket(ticket_id: str, body: ResolveIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """CCPC governance: approving a ticket unfreezes the profile for correction and re-verification."""
-    actor.require("CCPC")
+    """CDPC governance: approving a ticket unfreezes the profile for correction and re-verification."""
+    actor.require("CDPC")
     t = db.get(Ticket, ticket_id, with_for_update=True)
     if t is None:
         raise not_found("Ticket")

@@ -373,7 +373,7 @@ CREATE TABLE public.users (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_login_at timestamp with time zone,
     CONSTRAINT ck_users_email_lower CHECK (((email)::text = lower((email)::text))),
-    CONSTRAINT ck_users_role CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'VERIFIER'::character varying, 'SPOC'::character varying, 'CCPC'::character varying])::text[])))
+    CONSTRAINT ck_users_role CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'VERIFIER'::character varying, 'SPOC'::character varying, 'CDPC'::character varying])::text[])))
 );
 
 -- Name: v_student_profile_state; Type: VIEW; Schema: public; Owner: -

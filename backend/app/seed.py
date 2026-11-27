@@ -41,7 +41,7 @@ DAY = timedelta(days=1)
 
 STAFF = [
     # email, name, role, title, can_verify, linked student
-    (f"ccpc@{DOMAIN}", "CCPC Office", "CCPC", "CCPC Administrator · FIC Desk", True, None),
+    (f"cdpc@{DOMAIN}", "CDPC Office", "CDPC", "CDPC Administrator · FIC Desk", True, None),
     (f"verifier@{DOMAIN}", "Dr. Subrat Kar", "VERIFIER", "Authorized Faculty Verifier", True, None),
     (f"neha.gupta@{DOMAIN}", "Prof. Neha Gupta", "VERIFIER", "Staff Verifier", True, None),
     (f"staff.office@{DOMAIN}", "Rajesh Kumar", "VERIFIER", "Academic Section Staff (view-only)", False, None),
@@ -178,8 +178,8 @@ PENDING_INVITES = [
 ]
 
 AUDIT_ROWS = [
-    (-20 * DAY, "CCPC Office", "CCPC", "Invitation", "FEE_LIST_IMPORTED", "15 fee-paid students imported from the Academic Section list."),
-    (-19 * DAY, "CCPC Office", "CCPC", "Invitation", "INVITATION_SENT", "Bulk onboarding invitation sent to 15 fee-paid students."),
+    (-20 * DAY, "CDPC Office", "CDPC", "Invitation", "FEE_LIST_IMPORTED", "15 fee-paid students imported from the Academic Section list."),
+    (-19 * DAY, "CDPC Office", "CDPC", "Invitation", "INVITATION_SENT", "Bulk onboarding invitation sent to 15 fee-paid students."),
     (-15 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_CREATED", "Acme Systems — Cloud Infrastructure Engineer published (₹26 LPA)."),
     (-14 * DAY, "Dr. Subrat Kar", "VERIFIER", "Profile", "PROFILE_VERIFIED", "2026AIM1028 (Rohan Verma) verified and auto-locked."),
     (-12 * DAY, "System Engine", "SYSTEM", "Drive", "DRIVE_CLOSED", "Nova Labs — Data Engineer closed at deadline."),
@@ -187,19 +187,19 @@ AUDIT_ROWS = [
     (-7 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_FROZEN", "Orbit Tech — Product Engineer frozen pending headcount revision."),
     (-6 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_CREATED", "Acme Systems — Software Engineer published (₹42 LPA)."),
     (-6 * DAY + 2 * HOUR, "Rohan Verma", "STUDENT", "Ticket", "CORRECTION_REQUESTED", "2026AIM1028 requested a Semester SGPA correction."),
-    (-5 * DAY, "CCPC Office", "CCPC", "Ticket", "TICKET_REJECTED", "Correction ticket t-02 for 2026AIM1028 rejected."),
+    (-5 * DAY, "CDPC Office", "CDPC", "Ticket", "TICKET_REJECTED", "Correction ticket t-02 for 2026AIM1028 rejected."),
     (-5 * DAY + HOUR, "Simran Kaur", "SPOC", "Drive", "DRIVE_CREATED", "Nova Labs — Machine Learning Engineer published (₹38 LPA)."),
     (-4 * DAY, "Simran Kaur", "SPOC", "Application", "BATCH_SHORTLIST_EXECUTED", "Helix AI: 1 candidate moved to SHORTLISTED (2026CSM1002)."),
     (-3 * DAY, "Prof. Neha Gupta", "VERIFIER", "Profile", "REVISION_REQUESTED", "2026EEB1031 (Pooja Rathi): Class 12 value does not match the marksheet."),
-    (-2 * DAY, "CCPC Office", "CCPC", "Drive", "DEADLINE_EXTENDED", "Vertex Analytics — Data Analyst deadline extended by 48 hours."),
+    (-2 * DAY, "CDPC Office", "CDPC", "Drive", "DEADLINE_EXTENDED", "Vertex Analytics — Data Analyst deadline extended by 48 hours."),
     (-2 * DAY + 3 * HOUR, "Ananya Sharma", "SPOC", "Application", "ROSTER_EXPORTED", "Acme Systems — Software Engineer: 5 applicant rows exported as CSV."),
-    (-1 * DAY, "CCPC Office", "CCPC", "Invitation", "INVITATION_SENT", "Invitation sent to 2026AIB1033 (Nisha Patel)."),
+    (-1 * DAY, "CDPC Office", "CDPC", "Invitation", "INVITATION_SENT", "Invitation sent to 2026AIB1033 (Nisha Patel)."),
     (-26 * HOUR, "Harsh Vardhan", "STUDENT", "Ticket", "CORRECTION_REQUESTED", "2026MEB1012 requested a Class 12 % correction."),
     (-20 * HOUR, "Ananya Sharma", "SPOC", "Application", "BATCH_SHORTLIST_EXECUTED", "Orbit Tech — SDE-1: 2 candidates moved to SHORTLISTED (2026AIM1028, 2026MCB1019)."),
     (-9 * HOUR, "Yash Thakur", "STUDENT", "Ticket", "UNFREEZE_REQUESTED", "2026CEB1007 requested profile unfreeze (Active backlogs)."),
     (-3 * HOUR, "Nikhil Bansal", "STUDENT", "Profile", "PROFILE_SUBMITTED", "2026CSB1050 (Nikhil Bansal) submitted profile for verification."),
 ]
-ACTOR_EMAIL = {"CCPC Office": f"ccpc@{DOMAIN}", "Dr. Subrat Kar": f"verifier@{DOMAIN}", "Prof. Neha Gupta": f"neha.gupta@{DOMAIN}",
+ACTOR_EMAIL = {"CDPC Office": f"cdpc@{DOMAIN}", "Dr. Subrat Kar": f"verifier@{DOMAIN}", "Prof. Neha Gupta": f"neha.gupta@{DOMAIN}",
                "Ananya Sharma": f"spoc@{DOMAIN}", "Simran Kaur": f"simran.kaur@{DOMAIN}", "Rohan Verma": f"2026aim1028@{DOMAIN}",
                "Harsh Vardhan": f"2026meb1012@{DOMAIN}", "Yash Thakur": f"2026ceb1007@{DOMAIN}", "Nikhil Bansal": f"2026csb1050@{DOMAIN}"}
 
@@ -306,8 +306,8 @@ def seed(db: Session, now: datetime | None = None) -> None:
     # One earlier reassignment, so the history panel has something to show.
     db.add(AssignmentHistory(company_id="c-04", assignment_role="VERIFIER", previous_email=f"verifier@{DOMAIN}",
                              previous_name="Dr. Subrat Kar", new_email=f"neha.gupta@{DOMAIN}", new_name="Prof. Neha Gupta",
-                             reason="Balancing review load across verifiers", changed_by="CCPC Office",
-                             changed_by_email=f"ccpc@{DOMAIN}", changed_at=now - 2 * DAY))
+                             reason="Balancing review load across verifiers", changed_by="CDPC Office",
+                             changed_by_email=f"cdpc@{DOMAIN}", changed_at=now - 2 * DAY))
     creator = {"Ananya Sharma": f"spoc@{DOMAIN}", "Simran Kaur": f"simran.kaur@{DOMAIN}"}
     for d in _drives(now):
         db.add(Drive(**{**d, "ctc": D(d["ctc"]), "min_cgpa": D(d["min_cgpa"]), "created_by_email": creator.get(d["created_by"])}))
@@ -359,7 +359,7 @@ def seed(db: Session, now: datetime | None = None) -> None:
         Ticket(ticket_id="t-02", roll="2026AIM1028", ticket_type="CORRECTION", field="semCgpa", field_label="Semester SGPA",
                current_value="8.24, 8.48, 8.54", requested_value="8.24, 8.48, 8.56", status="REJECTED", created_at=now - 6 * DAY,
                justification="Semester 3 SGPA was rounded incorrectly on the record.", resolved_at=now - 5 * DAY,
-               resolved_by="CCPC Office", resolution="Semester 3 grade card shows SGPA 8.54. No change required."),
+               resolved_by="CDPC Office", resolution="Semester 3 grade card shows SGPA 8.54. No change required."),
         Ticket(ticket_id="t-03", roll="2026CEB1007", ticket_type="UNFREEZE", field="backlogs", field_label="Active backlogs",
                current_value="2", requested_value="1", status="OPEN", created_at=now - 9 * HOUR,
                justification="Cleared MA201 in the supplementary examination held in September. Result notification is available on the academic portal."),
@@ -403,7 +403,7 @@ def main() -> None:
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     reset_and_seed()
     print(f"Demo data loaded. All demo accounts use the password: {settings.demo_password}")
-    print(f"  CCPC admin : ccpc@{DOMAIN}\n  Verifier   : verifier@{DOMAIN}\n  SPOC       : spoc@{DOMAIN}\n  Student    : 2026aim1028@{DOMAIN}")
+    print(f"  CDPC admin : cdpc@{DOMAIN}\n  Verifier   : verifier@{DOMAIN}\n  SPOC       : spoc@{DOMAIN}\n  Student    : 2026aim1028@{DOMAIN}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Companies (CCPC approval + SPOC assignment) and placement drives / JAFs (SPOC roster workspace)."""
+"""Companies (CDPC approval + SPOC assignment) and placement drives / JAFs (SPOC roster workspace)."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ class CompanyIn(BaseModel):
 
 @router.post("/companies")
 def save_company(body: CompanyIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     name = body.name.strip()
     if len(name) < 2:
         raise bad("Company name is required.")
@@ -79,13 +79,13 @@ def save_company(body: CompanyIn, actor: Actor = Depends(get_actor), db: Session
 
 @router.post("/companies/{company_id}/approve")
 def approve_company(company_id: str, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     c = db.get(Company, company_id)
     if c is None:
         raise not_found("Company")
     c.status = "APPROVED"
     c.approved_at = utcnow()
-    log(db, actor, "Company", "COMPANY_APPROVED", f"{c.name} approved by CCPC.")
+    log(db, actor, "Company", "COMPANY_APPROVED", f"{c.name} approved by CDPC.")
     db.commit()
     return S.company_out(c)
 
@@ -96,7 +96,7 @@ class AssignIn(BaseModel):
 
 @router.post("/companies/{company_id}/assign-spoc")
 def assign_spoc(company_id: str, body: AssignIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     c = db.get(Company, company_id)
     if c is None:
         raise not_found("Company")
@@ -111,7 +111,7 @@ class ActiveIn(BaseModel):
 
 @router.post("/companies/{company_id}/active")
 def set_company_active(company_id: str, body: ActiveIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     c = db.get(Company, company_id)
     if c is None:
         raise not_found("Company")
@@ -153,7 +153,7 @@ class DriveIn(BaseModel):
 
 
 def _can_manage_company(actor: Actor, company: Company) -> None:
-    if actor.role == "CCPC":
+    if actor.role == "CDPC":
         return
     if actor.role == "SPOC" and company.assigned_spoc == actor.email:
         return
@@ -162,7 +162,7 @@ def _can_manage_company(actor: Actor, company: Company) -> None:
 
 @router.post("/drives")
 def save_drive(body: DriveIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     company = db.get(Company, body.companyId)
     if company is None:
         raise not_found("Company")
@@ -226,7 +226,7 @@ class StatusIn(BaseModel):
 
 @router.post("/drives/{drive_id}/status")
 def set_drive_status(drive_id: str, body: StatusIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     d = db.get(Drive, drive_id)
     if d is None:
         raise not_found("Drive")
@@ -250,8 +250,8 @@ class ExtendIn(BaseModel):
 
 @router.post("/drives/{drive_id}/extend")
 def extend_deadline(drive_id: str, body: ExtendIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """CCPC-only synchronized deadline extension: one stored deadline, every role sees the new countdown."""
-    actor.require("CCPC")
+    """CDPC-only synchronized deadline extension: one stored deadline, every role sees the new countdown."""
+    actor.require("CDPC")
     d = db.get(Drive, drive_id, with_for_update=True)
     if d is None:
         raise not_found("Drive")

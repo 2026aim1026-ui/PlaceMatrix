@@ -168,7 +168,7 @@ class StagesIn(BaseModel):
 
 @router.post("/applications/stages")
 def update_stages(body: StagesIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     if body.stage not in STAGE_LABELS:
         raise bad("Unknown stage")
     apps = list(db.scalars(select(Application).where(Application.application_id.in_(body.applicationIds))
@@ -195,7 +195,7 @@ class BulkIn(BaseModel):
 
 
 def _parse(db: Session, actor: Actor, body: BulkIn) -> tuple[Drive, dict]:
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     if body.targetStage not in STAGE_LABELS or body.targetStage in ("APPLIED", "WITHDRAWN"):
         raise bad("Choose a valid target stage.")
     drive = db.get(Drive, body.driveId)
@@ -214,7 +214,7 @@ def _rows_out(parsed: dict, actor: Actor) -> dict:
     rows = []
     for r in parsed["rows"]:
         st, app = r["student"], r["application"]
-        visible = st is not None and (app is not None or actor.role == "CCPC")  # SPOCs never see non-applicant records
+        visible = st is not None and (app is not None or actor.role == "CDPC")  # SPOCs never see non-applicant records
         rows.append({
             "index": r["index"], "raw": r["raw"], "roll": r["roll"], "status": r["status"],
             "message": r["message"] if visible or r["status"] != "NOT_APPLICANT" else "Not an applicant of this drive",
@@ -261,7 +261,7 @@ def safe_cell(value) -> str:
 @router.get("/drives/{drive_id}/roster.csv")
 def export_roster(drive_id: str, q: str = "", branch: str = "", stage: str = "",
                   actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     drive = db.get(Drive, drive_id)
     if drive is None:
         raise not_found("Drive")

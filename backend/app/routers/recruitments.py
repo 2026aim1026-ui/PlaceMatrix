@@ -95,9 +95,9 @@ class AssignmentIn(BaseModel):
 @router.put("/recruitments/{company_id}/assignment")
 def update_assignment(company_id: str, body: AssignmentIn, background: BackgroundTasks,
                       actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """CCPC only: set, change or clear the SPOC and/or verifier of a recruitment — also while it is running.
+    """CDPC only: set, change or clear the SPOC and/or verifier of a recruitment — also while it is running.
     Only the fields present in the request are changed; send null to unassign."""
-    actor.require("CCPC")
+    actor.require("CDPC")
     company = db.get(Company, company_id, with_for_update=True)
     if company is None:
         raise not_found("Company")
@@ -171,7 +171,7 @@ def _snapshot_path(db: Session, app: Application):
 
 @router.get("/applications/{application_id}/resume")
 def submitted_resume(application_id: str, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """The exact resume submitted with this application. Allowed: the student who applied, CCPC, and the SPOC
+    """The exact resume submitted with this application. Allowed: the student who applied, CDPC, and the SPOC
     and verifier currently assigned to the recruitment."""
     app = db.get(Application, application_id)
     if app is None:

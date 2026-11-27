@@ -104,7 +104,7 @@ export default function DocumentReview() {
 
       {pending && !me.canVerify && (
         <div className="mb-4 rounded-xl border border-warning/30 bg-warning-50 p-3 text-sm text-amber-800">
-          Your account can view documents but does not have verification rights. Ask the CCPC office to enable them.
+          Your account can view documents but does not have verification rights. Ask the CDPC office to enable them.
         </div>
       )}
       {!pending && (
@@ -241,7 +241,7 @@ export default function DocumentReview() {
         tone="success"
         title="Approve and auto-lock this profile?"
         confirmLabel="Approve & lock"
-        message={`${student.name}'s academic record will be marked verified and locked. Any later change requires a CCPC-approved ticket.`}
+        message={`${student.name}'s academic record will be marked verified and locked. Any later change requires a CDPC-approved ticket.`}
       />
       <ConfirmationDialog
         open={confirm === 'reject'}

@@ -1,4 +1,4 @@
-"""CCPC administration: user & verifier-rights management, analytics and audit-trail helpers."""
+"""CDPC administration: user & verifier-rights management, analytics and audit-trail helpers."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from ..services import Actor, bad, conflict, get_actor, log, not_found
 
 router = APIRouter(prefix="/api", tags=["administration"])
 
-STAFF_ROLES = ("VERIFIER", "SPOC", "CCPC")
+STAFF_ROLES = ("VERIFIER", "SPOC", "CDPC")
 
 # ---------------------------------------------------------------------------
 # Users & verification permissions
@@ -65,19 +65,19 @@ def _check_link(db: Session, roll: str | None) -> str | None:
 
 @router.post("/users")
 def create_user(body: UserIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     email = body.email.strip().lower()
     if not settings.email_allowed(email):
         raise bad(f"Staff accounts must use an @{settings.allowed_email_domain} address.")
     if body.role not in STAFF_ROLES:
-        raise bad("Role must be VERIFIER, SPOC or CCPC. Students join through onboarding invitations.")
+        raise bad("Role must be VERIFIER, SPOC or CDPC. Students join through onboarding invitations.")
     if db.get(User, email):
         raise conflict("An account with this email already exists.")
     if body.password is not None and len(body.password) < 8:
         raise bad("Password must be at least 8 characters.")
     password = body.password or _temp_password()
     u = User(email=email, name=body.name.strip(), role=body.role, title=body.title.strip() or None,
-             can_verify=body.canVerify if body.role == "VERIFIER" else body.role == "CCPC",
+             can_verify=body.canVerify if body.role == "VERIFIER" else body.role == "CDPC",
              linked_student_roll=_check_link(db, body.linkedStudentId) if body.role == "SPOC" else None,
              password_hash=hash_password(password), is_active=True)
     db.add(u)
@@ -88,7 +88,7 @@ def create_user(body: UserIn, actor: Actor = Depends(get_actor), db: Session = D
 
 @router.put("/users/{email}")
 def update_user(email: str, body: UserPatch, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     u = db.get(User, email.lower())
     if u is None or u.role == "STUDENT":
         raise not_found("Staff user")
@@ -126,7 +126,7 @@ def update_user(email: str, body: UserPatch, actor: Actor = Depends(get_actor), 
 
 @router.post("/users/{email}/reset-password")
 def reset_password(email: str, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     u = db.get(User, email.lower())
     if u is None:
         raise not_found("User")
@@ -150,7 +150,7 @@ class ExportLogIn(BaseModel):
 @router.post("/audit/export-log")
 def log_export(body: ExportLogIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
     """Client-side exports (e.g. student records CSV) are recorded in the audit trail."""
-    actor.require("CCPC", "VERIFIER", "SPOC")
+    actor.require("CDPC", "VERIFIER", "SPOC")
     log(db, actor, body.entity, "ROSTER_EXPORTED" if body.entity == "Application" else "RECORDS_EXPORTED", body.description)
     db.commit()
     return {"ok": True}
@@ -158,7 +158,7 @@ def log_export(body: ExportLogIn, actor: Actor = Depends(get_actor), db: Session
 
 @router.get("/audit/export.csv")
 def export_audit(actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     buf = io.StringIO()
     w = csv.writer(buf, quoting=csv.QUOTE_ALL, lineterminator="\r\n")
     w.writerow(["Log ID", "Timestamp (UTC)", "Actor", "Actor email", "Role", "Entity", "Action", "Description"])
@@ -178,7 +178,7 @@ def export_audit(actor: Actor = Depends(get_actor), db: Session = Depends(get_db
 
 @router.get("/analytics/summary")
 def analytics(actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     students = db.scalars(select(Student)).all()
     drives = {d.drive_id: d for d in db.scalars(select(Drive))}
     companies = {c.company_id: c for c in db.scalars(select(Company))}

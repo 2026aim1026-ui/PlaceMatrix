@@ -4,9 +4,9 @@ import PageHeader from '../../components/common/PageHeader';
 
 const POLICIES = [
   [ShieldCheck, 'Verified record', 'Eligibility is computed only from your faculty-verified academic record. Claimed values are compared with uploaded proofs before approval.'],
-  [Lock, 'Auto-lock', 'Once verified, your academic record locks. Changes need a correction or unfreeze ticket approved by CCPC, followed by re-verification.'],
+  [Lock, 'Auto-lock', 'Once verified, your academic record locks. Changes need a correction or unfreeze ticket approved by CDPC, followed by re-verification.'],
   [Scale, 'One-offer policy', 'When you receive an offer, your other active applications are automatically withdrawn and further drives become unavailable.'],
-  [Clock, 'Deadlines', 'Applications freeze automatically at the drive deadline. Only CCPC can extend a deadline; you will be notified when it happens.'],
+  [Clock, 'Deadlines', 'Applications freeze automatically at the drive deadline. Only CDPC can extend a deadline; you will be notified when it happens.'],
   [Ticket, 'Tickets', 'You can have one open ticket at a time. Include a clear justification and reference the supporting document.'],
 ];
 
@@ -14,7 +14,7 @@ const FAQ = [
   ['Why can’t I apply to a drive?', 'Open the drive and check the eligibility checklist — each failed rule shows your value and the requirement. Your profile must also be verified.'],
   ['Which resume is sent?', 'The resume you pick on the card (your default by default). Only verified resumes can be attached.'],
   ['Can I withdraw?', 'Yes, from My Applications, until the application reaches a final stage (Offered or Rejected).'],
-  ['Where are my files stored?', 'On the institute-hosted PlaceMatrix server. Only you, authorised verifiers and the CCPC office can open your documents.'],
+  ['Where are my files stored?', 'On the institute-hosted PlaceMatrix server. Only you, authorised verifiers and the CDPC office can open your documents.'],
 ];
 
 export default function HelpPolicy() {

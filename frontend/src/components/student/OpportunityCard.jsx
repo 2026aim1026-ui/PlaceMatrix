@@ -49,7 +49,7 @@ export default function OpportunityCard({ drive, onApply, onWhy, now }) {
       <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted">
         <Clock className="h-3.5 w-3.5" aria-hidden />
         {closed ? `Closed ${formatDateTime(drive.deadline)}` : <>Closes {formatDateTime(drive.deadline)} · <Countdown to={drive.deadline} className="font-semibold text-ink" /></>}
-        {frozen && <span className="font-semibold text-brand">· Frozen by CCPC</span>}
+        {frozen && <span className="font-semibold text-brand">· Frozen by CDPC</span>}
       </p>
 
       <div className="mt-auto pt-3">

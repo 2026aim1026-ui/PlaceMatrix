@@ -44,7 +44,7 @@ class EmailNotConfigured(RuntimeError):
 
 
 def friendly_error(exc: BaseException) -> str:
-    """Turn smtplib / socket errors into messages a CCPC admin can act on."""
+    """Turn smtplib / socket errors into messages a CDPC admin can act on."""
     if isinstance(exc, EmailNotConfigured):
         return str(exc)
     if isinstance(exc, smtplib.SMTPAuthenticationError):
@@ -167,7 +167,7 @@ def render_template(template: str, values: dict[str, str]) -> str:
 
 
 def public_status(full: bool) -> dict:
-    """SMTP status for the UI. Never includes the password; `full` adds host details for CCPC."""
+    """SMTP status for the UI. Never includes the password; `full` adds host details for CDPC."""
     data = {"configured": settings.smtp_configured}
     if full:
         data.update(

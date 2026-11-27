@@ -25,14 +25,14 @@ export default function GlobalSearch({ role }) {
       .slice(0, 5)
       .forEach((d) => out.push({
         key: d.id, icon: Briefcase, title: `${companyById.get(d.companyId)?.name} — ${d.role}`, sub: `${formatCtc(d.ctc)} · ${d.status}`,
-        to: isStudent ? `/student/opportunities/${d.id}` : role === ROLES.CCPC ? `/admin/drives?q=${encodeURIComponent(d.role)}` : role === ROLES.SPOC ? `/admin/spoc/roster?drive=${d.id}` : null,
+        to: isStudent ? `/student/opportunities/${d.id}` : role === ROLES.CDPC ? `/admin/drives?q=${encodeURIComponent(d.role)}` : role === ROLES.SPOC ? `/admin/spoc/roster?drive=${d.id}` : null,
       }));
-    if (role === ROLES.CCPC) {
+    if (role === ROLES.CDPC) {
       db.companies.filter((c) => c.name.toLowerCase().includes(term)).slice(0, 3).forEach((c) => out.push({
         key: c.id, icon: Building2, title: c.name, sub: c.industry, to: `/admin/companies?q=${encodeURIComponent(c.name)}`,
       }));
     }
-    if (role === ROLES.CCPC || role === ROLES.VERIFIER) {
+    if (role === ROLES.CDPC || role === ROLES.VERIFIER) {
       db.students.filter((s) => `${s.name} ${s.roll}`.toLowerCase().includes(term)).slice(0, 5).forEach((s) => out.push({
         key: s.id, icon: GraduationCap, title: `${s.name}`, sub: `${s.roll} · ${s.branch} · ${s.verification}`, to: `/admin/students?open=${s.id}`,
       }));

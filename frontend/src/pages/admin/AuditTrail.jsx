@@ -10,7 +10,7 @@ import { useToast } from '../../context/ToastContext';
 import { downloadCsv } from '../../utils/csvExport';
 import { formatDateTime, formatFull, DAY } from '../../utils/dateUtils';
 
-const ROLE_NAMES = { CCPC: 'CCPC Admin', VERIFIER: 'Verifier', SPOC: 'SPOC', STUDENT: 'Student', SYSTEM: 'System' };
+const ROLE_NAMES = { CDPC: 'CDPC Admin', VERIFIER: 'Verifier', SPOC: 'SPOC', STUDENT: 'Student', SYSTEM: 'System' };
 
 export default function AuditTrail() {
   const { db, repo } = useData();

@@ -74,7 +74,7 @@ def build_state(db: Session, actor: Actor) -> dict:
 
     me_user = [S.user_out(actor.user)]
 
-    if role == "CCPC":
+    if role == "CDPC":
         state["adminUsers"] = [S.user_out(u) for u in db.scalars(select(User).where(User.role != "STUDENT").order_by(User.role, User.name))]
         state["students"] = [S.student_out(s) for s in db.scalars(select(Student).order_by(Student.roll))]
         state["documents"] = [S.document_out(d) for d in db.scalars(select(Document).order_by(Document.uploaded_at))]
@@ -120,7 +120,7 @@ def build_state(db: Session, actor: Actor) -> dict:
         state["students"] = [S.student_out(s) for s in db.scalars(select(Student).where(Student.roll.in_(rolls)))] if rolls else []
         state["documents"] = [S.document_out(d) for d in db.scalars(select(Document).where(Document.doc_id.in_(resume_ids)))] if resume_ids else []
 
-    # Non-CCPC staff see their own recent activity in the bell feed.
+    # Non-CDPC staff see their own recent activity in the bell feed.
     own = list(db.scalars(select(AuditLog).where(AuditLog.actor_email == actor.email).order_by(AuditLog.log_id.desc()).limit(50)))
     state["audit"] = [S.audit_out(e) for e in reversed(own)]
     return state

@@ -237,7 +237,7 @@ export const approveCompany = (_actor, companyId) => run(() => api.post(`/api/co
 
 export const assignSpoc = (_actor, companyId, spocId) => run(() => api.post(`/api/companies/${companyId}/assign-spoc`, { spocId }));
 
-/** CCPC: change the SPOC and/or verifier of a (running) recruitment. Only keys present are changed; null unassigns. */
+/** CDPC: change the SPOC and/or verifier of a (running) recruitment. Only keys present are changed; null unassigns. */
 export const updateAssignment = (companyId, patch) => run(() => api.put(`/api/recruitments/${companyId}/assignment`, patch));
 
 export const fetchAssignmentHistory = (companyId) =>

@@ -2,10 +2,10 @@
 
 A full-stack replacement for the third-party placement SaaS: students sign in with their **@iitrpr.ac.in**
 account, submit a Profile Audit backed by PDF proofs, get verified once by a faculty/staff verifier, and then
-apply to drives in one click. SPOCs run the companies they brought to campus; CCPC governs everything; every
+apply to drives in one click. SPOCs run the companies they brought to campus; CDPC governs everything; every
 action lands in an append-only audit trail.
 
-> **New in version 1.1** — CCPC can change the SPOC and verifier of any recruitment (even while its drives are
+> **New in version 1.1** — CDPC can change the SPOC and verifier of any recruitment (even while its drives are
 > running), Admin and SPOCs can email students through your own SMTP server (placement invitations and custom
 > emails), students keep a library of several resumes and pick one for every application (a frozen copy is stored
 > with the application), and direct database edits appear on open pages within about 3 seconds.
@@ -143,10 +143,10 @@ and the account menu (top right) can switch between them.
 | Student | `2026aim1028@iitrpr.ac.in` | Rohan Verma — M.Tech AI, CGPA 8.42, verified & locked |
 | Faculty Verifier | `verifier@iitrpr.ac.in` | Dr. Subrat Kar — verification queue with rights; assigned verifier of Acme, Orbit, Vertex, Atlas |
 | Staff Verifier | `neha.gupta@iitrpr.ac.in` | Prof. Neha Gupta — assigned verifier of Nova Labs, Helix AI, Quantum Grid |
-| Verifier (view-only) | `staff.office@iitrpr.ac.in` | Rajesh Kumar — can view, cannot approve (until CCPC grants rights) |
+| Verifier (view-only) | `staff.office@iitrpr.ac.in` | Rajesh Kumar — can view, cannot approve (until CDPC grants rights) |
 | SPOC | `spoc@iitrpr.ac.in` | Ananya Sharma — Acme, Orbit, Vertex, Atlas; linked to student 2026CSB1011 |
 | SPOC | `simran.kaur@iitrpr.ac.in` | Simran Kaur — Nova Labs, Helix AI, Quantum Grid |
-| CCPC Admin | `ccpc@iitrpr.ac.in` | CCPC Office — full governance access |
+| CDPC Admin | `cdpc@iitrpr.ac.in` | CDPC Office — full governance access |
 
 Every seeded student signs in with `<roll number>@iitrpr.ac.in`, e.g. `2026csb1050@iitrpr.ac.in` (pending
 verification), `2026eeb1031@iitrpr.ac.in` (revision requested), `2026aib1020@iitrpr.ac.in` (not submitted yet).
@@ -190,14 +190,14 @@ other window within a few seconds — no refresh needed.
 
 **Unfreeze Tickets & Onboarding Invites**
 16. As a verified student (e.g. `2026mcb1019@…`) → **Profile Audit** → *Request unfreeze* with a justification.
-17. As CCPC → **Unfreeze Tickets** → open it → **Approve & unlock**. The student can now edit and resubmit.
-18. As CCPC → **Onboarding Invites** → *Add fee-paid students* (e.g. `2026CSB1061, Aditi Verma`) → *Send
+17. As CDPC → **Unfreeze Tickets** → open it → **Approve & unlock**. The student can now edit and resubmit.
+18. As CDPC → **Onboarding Invites** → *Add fee-paid students* (e.g. `2026CSB1061, Aditi Verma`) → *Send
     invitation*. The one-time **activation link** is copied to your clipboard (use *Copy link* later).
 19. Open the link in a private window → set a password → **Accept & create profile** → the new student lands on
     an empty Profile Audit.
 
 **Analytics & Audit Trail**
-20. As CCPC → **Analytics**: placement rate by branch, funnel, CTC bands, company-wise outcomes — computed
+20. As CDPC → **Analytics**: placement rate by branch, funnel, CTC bands, company-wise outcomes — computed
     from PostgreSQL. **Audit Trail** lists every action above; *Full export* downloads it as CSV.
 21. **Governance Desk** → *Extend Deadline* on a drive: the countdown updates for every role.
 22. **Users & Roles**: add a verifier, grant/revoke verification rights, deactivate an account.
@@ -210,13 +210,13 @@ other window within a few seconds — no refresh needed.
     *View submitted copy* opens the frozen file — it stays the same even if you delete or replace the resume.
 
 **Change SPOC / verifier of a running recruitment (new)**
-25. As CCPC → **Recruitments** → *Change* next to the SPOC of Acme Systems → choose Simran Kaur (and a new
+25. As CDPC → **Recruitments** → *Change* next to the SPOC of Acme Systems → choose Simran Kaur (and a new
     verifier), add a reason → *Save assignment*. The history icon shows the change; the new assignees get an
     email (when SMTP is configured).
 26. Sign in as `spoc@…`: Acme is gone from Assigned Companies; as `simran.kaur@…` it appears, with its applicants.
 
 **Email students (new — needs SMTP, see the setup guide)**
-27. As CCPC → **Email Center** → *Test* sends a test email and shows the exact error if the SMTP settings are wrong.
+27. As CDPC → **Email Center** → *Test* sends a test email and shows the exact error if the SMTP settings are wrong.
 28. **Recruitments** → *Invite* on a recruitment with an open drive → select students → edit subject/body
     (placeholders such as `{first_name}`, `{company}`, `{link}`) → *Send invitation* → per-student sent/failed
     results; every email is listed in **Email Center**.
@@ -257,7 +257,7 @@ Schema changes are versioned migrations in `backend/app/migrations.py` (recorded
 
 | Table | Key columns | Integrity rules |
 |---|---|---|
-| `users` | **email** PK, role, can_verify, is_active, password_hash, linked_student_roll | role ∈ {STUDENT, VERIFIER, SPOC, CCPC}; email lower-case |
+| `users` | **email** PK, role, can_verify, is_active, password_hash, linked_student_roll | role ∈ {STUDENT, VERIFIER, SPOC, CDPC}; email lower-case |
 | `students` | **roll** PK, user_email FK→users, branch, degree, cgpa, sem_cgpa[], class10, class12, backlogs, verification, locked, verified_by, placement, placed_company, proof (JSONB), default_resume_id | CGPA 0–10, % 0–100, backlogs ≥ 0, *locked ⇒ verified* |
 | `documents` | **doc_id** PK, roll FK, doc_type, label, file_path, version, status, remarks, claimed_value, is_default | one proof per academic type per student; one default resume per student; default must be a resume; up to `MAX_RESUMES` resumes |
 | `companies` | **company_id** PK, name, recruiter_email, assigned_spoc FK→users, **assigned_verifier** FK→users, status, active, approved_at | case-insensitive unique name |
@@ -281,7 +281,7 @@ Schema changes are versioned migrations in `backend/app/migrations.py` (recorded
 | verification = PENDING | PENDING_VERIFICATION |
 | verification = VERIFIED and locked | VERIFIED_LOCKED |
 | verification = REVISION / REJECTED | REVISION_REQUIRED |
-| REVISION after a CCPC-approved ticket | UNFROZEN_EDITING |
+| REVISION after a CDPC-approved ticket | UNFROZEN_EDITING |
 | placement = PLACED | POLICY_LOCKED (terminal) |
 
 ## 7. Business rules enforced by the server
@@ -290,28 +290,28 @@ Schema changes are versioned migrations in `backend/app/migrations.py` (recorded
   configured); fee-paid-but-not-invited and declined students cannot sign in.
 - **Least privilege**: `GET /api/state` returns a different slice per role — a student sees only their own
   record; a SPOC only their companies, drives and applicants; a verifier students + documents (no tickets,
-  invitations or recruiter contacts); CCPC everything. Every mutation re-checks the role on the server.
+  invitations or recruiter contacts); CDPC everything. Every mutation re-checks the role on the server.
 - **Verification**: approval is refused while any claimed value differs from the proof value; approval
-  auto-locks the record; verifiers need `can_verify` (granted by CCPC).
+  auto-locks the record; verifiers need `can_verify` (granted by CDPC).
 - **Eligibility**: CGPA ≥ cutoff ∧ branch allowed ∧ backlogs ≤ limit ∧ batch ∧ degree ∧ skills ∧ verified ∧
   not placed; re-checked atomically on apply with the student row locked.
 - **Pipeline**: forward-only (Applied → Under Review → Shortlisted → Assessment → Interview → Offered);
   Rejected/Withdrawn from any non-terminal stage; Offered/Rejected/Withdrawn are terminal.
 - **One-offer policy lock**: moving a candidate to Offered marks them PLACED and withdraws all their other
   active applications in the same transaction; a second offer is skipped.
-- **Deadlines**: one stored `close_at` per drive; only CCPC can extend (must be later, reason required, everyone
+- **Deadlines**: one stored `close_at` per drive; only CDPC can extend (must be later, reason required, everyone
   notified); OPEN drives auto-close at the deadline (`DRIVE_CLOSED` by *System Engine*).
 - **Exports**: CSVs are UTF-8 with BOM, every cell quoted, and cells starting with `= + - @` are neutralised.
 - **Uploads**: PDF/PNG/JPG only (checked by content, not just extension), max 5 MB; resumes must be real PDFs
   (header and end marker checked, embedded JavaScript / launch actions refused); file names are sanitised.
-- **Recruitment assignments**: only CCPC changes a recruitment's SPOC or verifier (`assignment_history` + audit
+- **Recruitment assignments**: only CDPC changes a recruitment's SPOC or verifier (`assignment_history` + audit
   log). Access follows the *current* assignment on every request: the previous SPOC/verifier loses access to that
   recruitment immediately, the new one gains it; applications, stages and history are untouched.
 - **Resumes per application**: a student can only apply with one of their own resumes; the file is copied into
   `uploads/submissions/<application>/` with its SHA-256 and metadata, so editing, re-versioning or deleting the
-  resume later never changes what the recruiter sees. Submitted copies are visible to the student, CCPC, and the
+  resume later never changes what the recruiter sees. Submitted copies are visible to the student, CDPC, and the
   recruitment's current SPOC and verifier only.
-- **Email**: CCPC can email any student; a SPOC only students who applied to, or are eligible for, a drive of a
+- **Email**: CDPC can email any student; a SPOC only students who applied to, or are eligible for, a drive of a
   recruitment assigned to them; students and verifiers cannot send. Invitations require an open drive. Every
   recipient's result (sent / failed + reason) is stored in `email_logs`. SMTP credentials are read only from the
   environment and are never returned by the API.
@@ -348,7 +348,7 @@ All settings live in `backend/.env` (see `.env.example`). Before a real deployme
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`
   to send email (invitations, custom emails, activation links, assignment notices). Gmail walkthrough with App
   Password: `PLACEMATRIX_FEATURE_SETUP_GUIDE.txt`, part C. Without SMTP, email features show "Not configured" and
-  CCPC copies activation links from *Onboarding Invites*.
+  CDPC copies activation links from *Onboarding Invites*.
 - `MAX_RESUMES` (default 10), `EMAIL_MAX_RECIPIENTS` (200), `AUTO_MIGRATE` (true), `REALTIME_SYNC` (true).
 - `FRONTEND_URL` / `CORS_ORIGINS` set to the real site address; build the UI with `npm run build` and serve
   `frontend/dist/` behind the same domain as the API (or set `VITE_API_URL`).

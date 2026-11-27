@@ -177,9 +177,23 @@ def m0002_recruitment_email_resumes(conn: Connection) -> None:
         logger.info("Backfilled resume snapshots for %d application(s)", len(rows))
 
 
+def m0003_rename_ccpc_to_cdpc(conn: Connection) -> None:
+    """The admin role is CDPC (Career Development & Placement Centre), not CCPC. Rename the stored role value
+    and the default title/name text of admin accounts. Email addresses are left untouched (they are real
+    accounts), and audit_logs keeps its historical rows as written (the table is append-only)."""
+    if _constraint_exists(conn, "ck_users_role"):
+        conn.execute(text("ALTER TABLE users DROP CONSTRAINT ck_users_role"))
+    conn.execute(text("UPDATE users SET role = 'CDPC' WHERE role = 'CCPC'"))
+    conn.execute(text("UPDATE users SET title = replace(title, 'CCPC', 'CDPC') WHERE title LIKE '%CCPC%'"))
+    conn.execute(text("UPDATE users SET name = replace(name, 'CCPC', 'CDPC') WHERE name LIKE '%CCPC%'"))
+    conn.execute(text("ALTER TABLE users ADD CONSTRAINT ck_users_role "
+                      "CHECK (role IN ('STUDENT', 'VERIFIER', 'SPOC', 'CDPC'))"))
+
+
 MIGRATIONS: list[tuple[str, str, Callable[[Connection], None]]] = [
     ("0001", "baseline schema", m0001_baseline),
     ("0002", "recruitment assignments, email logs, resume snapshots, live sync", m0002_recruitment_email_resumes),
+    ("0003", "rename admin role CCPC to CDPC", m0003_rename_ccpc_to_cdpc),
 ]
 
 

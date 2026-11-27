@@ -1,7 +1,7 @@
 """Email through SMTP: placement invitations and custom emails to students, a test email, and the log.
 
 Who can send:
-  * CCPC — any student, optionally tied to a company / drive.
+  * CDPC — any student, optionally tied to a company / drive.
   * SPOC — only for recruitments currently assigned to them, and only to students who applied to that
     recruitment or (for a drive) are eligible for it. Enforced here on every request.
   * Verifiers and students cannot send.
@@ -72,7 +72,7 @@ def _student_values(s: Student, drive: Drive | None, company: Company | None, ac
 
 def _scope(db: Session, actor: Actor, drive_id: str | None, company_id: str | None) -> tuple[Drive | None, Company | None]:
     """Resolve and authorise the recruitment an email is about."""
-    actor.require("CCPC", "SPOC")
+    actor.require("CDPC", "SPOC")
     drive = company = None
     if drive_id:
         drive = db.get(Drive, drive_id)
@@ -128,8 +128,8 @@ def _allowed_students(db: Session, actor: Actor, drive: Drive | None, company: C
 
 @router.get("/status")
 def email_status(actor: Actor = Depends(get_actor)):
-    actor.require("CCPC", "SPOC")
-    return {**emailer.public_status(full=actor.role == "CCPC"), "placeholders": PLACEHOLDERS,
+    actor.require("CDPC", "SPOC")
+    return {**emailer.public_status(full=actor.role == "CDPC"), "placeholders": PLACEHOLDERS,
             "maxRecipients": settings.email_max_recipients}
 
 
@@ -139,8 +139,8 @@ class TestIn(BaseModel):
 
 @router.post("/test")
 def send_test(body: TestIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """CCPC: send a test email to check the SMTP settings (defaults to your own address)."""
-    actor.require("CCPC")
+    """CDPC: send a test email to check the SMTP settings (defaults to your own address)."""
+    actor.require("CDPC")
     to = (body.to or actor.email).strip().lower()
     if not emailer.EMAIL_RE.match(to):
         raise bad("Enter a valid email address.")
@@ -225,8 +225,8 @@ def send_email(body: SendIn, actor: Actor = Depends(get_actor), db: Session = De
 @router.get("/logs")
 def email_logs(driveId: str | None = None, companyId: str | None = None, status: str | None = None,
                limit: int = Query(300, ge=1, le=1000), actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    """Email history. CCPC sees everything; a SPOC sees what they sent and emails about their recruitments."""
-    actor.require("CCPC", "SPOC")
+    """Email history. CDPC sees everything; a SPOC sees what they sent and emails about their recruitments."""
+    actor.require("CDPC", "SPOC")
     q = select(EmailLog).order_by(EmailLog.email_id.desc()).limit(limit)
     if actor.role == "SPOC":
         mine = select(Company.company_id).where(Company.assigned_spoc == actor.email)

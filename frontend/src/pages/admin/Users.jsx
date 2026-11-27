@@ -15,9 +15,9 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { ROLE_LABELS } from '../../constants';
 import { timeAgo } from '../../utils/dateUtils';
 
-const STAFF_ROLES = ['VERIFIER', 'SPOC', 'CCPC'];
+const STAFF_ROLES = ['VERIFIER', 'SPOC', 'CDPC'];
 
-/** CCPC: staff accounts, roles and verification rights ("Manage users & verification permissions"). */
+/** CDPC: staff accounts, roles and verification rights ("Manage users & verification permissions"). */
 export default function Users() {
   const { db, repo, config } = useData();
   const me = useCurrentUser();
@@ -89,7 +89,7 @@ export default function Users() {
         <StatCard icon={UsersIcon} label="Staff accounts" value={users.length} tone="blue" onClick={() => setRole('')} active={!role} />
         <StatCard icon={ShieldCheck} label="Verifiers" value={users.filter((u) => u.role === 'VERIFIER').length} tone="green" hint={`${users.filter((u) => u.role === 'VERIFIER' && u.canVerify).length} with rights`} onClick={() => setRole('VERIFIER')} active={role === 'VERIFIER'} />
         <StatCard icon={Briefcase} label="SPOCs" value={users.filter((u) => u.role === 'SPOC').length} tone="violet" onClick={() => setRole('SPOC')} active={role === 'SPOC'} />
-        <StatCard icon={Landmark} label="CCPC admins" value={users.filter((u) => u.role === 'CCPC').length} tone="amber" onClick={() => setRole('CCPC')} active={role === 'CCPC'} />
+        <StatCard icon={Landmark} label="CDPC admins" value={users.filter((u) => u.role === 'CDPC').length} tone="amber" onClick={() => setRole('CDPC')} active={role === 'CDPC'} />
       </div>
 
       <section className="card">

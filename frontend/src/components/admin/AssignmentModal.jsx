@@ -7,7 +7,7 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 
 /**
- * CCPC: change the SPOC and/or verifier of a recruitment — also while its drives are running.
+ * CDPC: change the SPOC and/or verifier of a recruitment — also while its drives are running.
  * The server records the change in assignment_history and access moves to the new person immediately.
  * `focus` ('SPOC' | 'VERIFIER') only decides which picker is shown first.
  */

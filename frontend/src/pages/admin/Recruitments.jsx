@@ -15,7 +15,7 @@ import { formatDateTime, timeAgo } from '../../utils/dateUtils';
 import { formatCtc } from '../../utils/format';
 
 /**
- * CCPC recruitment desk: who runs and who verifies each recruitment — changeable at any time, even while
+ * CDPC recruitment desk: who runs and who verifies each recruitment — changeable at any time, even while
  * drives are running — plus invitations and emails to students, and the full assignment history.
  */
 export default function Recruitments() {

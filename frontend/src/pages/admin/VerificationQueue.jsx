@@ -92,7 +92,7 @@ export default function VerificationQueue() {
 
       {!me.canVerify && (
         <p className="mb-4 rounded-xl border border-warning/30 bg-warning-50 px-4 py-3 text-sm text-amber-800">
-          View-only access: you can open profiles and documents, but approving or requesting revisions needs verification rights from CCPC.
+          View-only access: you can open profiles and documents, but approving or requesting revisions needs verification rights from CDPC.
         </p>
       )}
 

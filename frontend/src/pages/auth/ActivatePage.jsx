@@ -7,7 +7,7 @@ import { api } from '../../api/client';
 import FormField from '../../components/forms/FormField';
 import { Logo } from '../../components/layout/Sidebar';
 
-/** One-time activation link from a CCPC invitation: the invited student sets a password. */
+/** One-time activation link from a CDPC invitation: the invited student sets a password. */
 export default function ActivatePage() {
   const [params] = useSearchParams();
   const token = params.get('token') || '';
@@ -25,7 +25,7 @@ export default function ActivatePage() {
     if (!token) { setLoadError('This activation link is incomplete.'); return; }
     api.get(`/api/auth/invite-info?token=${encodeURIComponent(token)}`, { auth: false })
       .then(setInfo)
-      .catch(() => setLoadError('This activation link is invalid or has already been used. Sign in instead, or ask CCPC to resend your invitation.'));
+      .catch(() => setLoadError('This activation link is invalid or has already been used. Sign in instead, or ask CDPC to resend your invitation.'));
   }, [token]);
 
   const submit = async (e) => {
@@ -62,7 +62,7 @@ export default function ActivatePage() {
                   <p className="text-sm text-ink-muted">Entry No. {info.entryNo} · {info.email}</p>
                 </div>
               </div>
-              {info.expired && <p className="rounded-md bg-danger-50 px-3 py-2 text-xs text-danger">This link has expired. Ask CCPC to resend your invitation.</p>}
+              {info.expired && <p className="rounded-md bg-danger-50 px-3 py-2 text-xs text-danger">This link has expired. Ask CDPC to resend your invitation.</p>}
               <FormField label="Create a password" required hint="At least 8 characters">
                 <input type="password" autoComplete="new-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
               </FormField>

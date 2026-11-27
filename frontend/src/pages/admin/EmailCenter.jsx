@@ -14,12 +14,12 @@ import { useToast } from '../../context/ToastContext';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { formatDateTime } from '../../utils/dateUtils';
 
-/** SMTP status, test email (CCPC), compose, and the log of every email sent through the portal. */
+/** SMTP status, test email (CDPC), compose, and the log of every email sent through the portal. */
 export default function EmailCenter() {
   const { db, repo, companyById, driveById } = useData();
   const me = useCurrentUser();
   const toast = useToast();
-  const isCcpc = me.role === 'CCPC';
+  const isCdpc = me.role === 'CDPC';
   const [status, setStatus] = useState(null);
   const [logs, setLogs] = useState(null);
   const [error, setError] = useState('');
@@ -80,7 +80,7 @@ export default function EmailCenter() {
     <>
       <PageHeader
         title="Email Center"
-        description={isCcpc ? 'Emails sent through the SMTP server: invitations, custom messages, onboarding links and assignment notices.' : 'Emails about the recruitments assigned to you.'}
+        description={isCdpc ? 'Emails sent through the SMTP server: invitations, custom messages, onboarding links and assignment notices.' : 'Emails about the recruitments assigned to you.'}
         actions={(
           <>
             <button type="button" className="btn btn-secondary" onClick={load}><RefreshCcw className="h-4 w-4" /> Refresh</button>
@@ -95,7 +95,7 @@ export default function EmailCenter() {
           {!status ? <p className="mt-3 text-sm text-ink-muted">Checking…</p> : status.configured ? (
             <div className="mt-3 space-y-1.5 text-sm">
               <p className="flex items-center gap-1.5 font-semibold text-success"><CheckCircle2 className="h-4 w-4" /> Configured</p>
-              {isCcpc && (
+              {isCdpc && (
                 <dl className="grid grid-cols-[90px_1fr] gap-y-1 text-[12px]">
                   <dt className="text-ink-muted">Host</dt><dd className="mono">{status.host}:{status.port}</dd>
                   <dt className="text-ink-muted">Security</dt><dd className="mono">{status.security}</dd>
@@ -106,10 +106,10 @@ export default function EmailCenter() {
             </div>
           ) : (
             <p className="mt-3 flex items-start gap-2 text-sm text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>Not configured. {isCcpc ? <>Add SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD and SMTP_FROM_EMAIL to <code>backend/.env</code>, then restart the backend (see PLACEMATRIX_FEATURE_SETUP_GUIDE.txt).</> : 'Ask the CCPC office to configure it.'}</span>
+              <span>Not configured. {isCdpc ? <>Add SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD and SMTP_FROM_EMAIL to <code>backend/.env</code>, then restart the backend (see PLACEMATRIX_FEATURE_SETUP_GUIDE.txt).</> : 'Ask the CDPC office to configure it.'}</span>
             </p>
           )}
-          {isCcpc && (
+          {isCdpc && (
             <div className="mt-4 border-t border-line pt-3">
               <FormField label="Send a test email to" hint={`Leave empty to use ${me.admin?.email || 'your address'}`}>
                 <div className="flex gap-2">

@@ -5,7 +5,7 @@ placement_drives, applications, unfreeze_tickets, audit_logs) and adds three sup
 application_events (stage history), invitations (fee-paid onboarding) and notifications.
 
 String primary keys are used for business entities so ids stay readable in URLs
-(e.g. drive "d-01", student roll "2026AIM1028", user email "ccpc@iitrpr.ac.in").
+(e.g. drive "d-01", student roll "2026AIM1028", user email "cdpc@iitrpr.ac.in").
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from .database import Base
 # Allowed values (enforced with CHECK constraints)
 # ---------------------------------------------------------------------------
 
-ROLES = ("STUDENT", "VERIFIER", "SPOC", "CCPC")
+ROLES = ("STUDENT", "VERIFIER", "SPOC", "CDPC")
 VERIFICATION = ("NOT_SUBMITTED", "PENDING", "VERIFIED", "REVISION", "REJECTED")
 PLACEMENT = ("UNPLACED", "PLACED")
 DOC_TYPES = ("GRADE_CARD", "CLASS10", "CLASS12", "ID_PROOF", "RESUME", "PORTFOLIO", "CERTIFICATE", "OTHER")
@@ -188,7 +188,7 @@ class Document(Base):
 
 
 # ---------------------------------------------------------------------------
-# 4. companies — recruiters approved by CCPC, managed by one SPOC and one recruitment verifier
+# 4. companies — recruiters approved by CDPC, managed by one SPOC and one recruitment verifier
 # ---------------------------------------------------------------------------
 
 
@@ -312,7 +312,7 @@ class ApplicationEvent(Base):
 
 
 # ---------------------------------------------------------------------------
-# 7. unfreeze_tickets — correction / unfreeze requests governed by CCPC
+# 7. unfreeze_tickets — correction / unfreeze requests governed by CDPC
 # ---------------------------------------------------------------------------
 
 

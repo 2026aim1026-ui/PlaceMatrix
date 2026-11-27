@@ -112,8 +112,8 @@ def request_revision(roll: str, body: RevisionIn, actor: Actor = Depends(get_act
     s = _student(db, roll)
     if s.verification == "PENDING":
         actor.require_verifier()
-    elif actor.role != "CCPC":
-        raise forbidden("Only CCPC can unlock a profile that is not awaiting verification.")
+    elif actor.role != "CDPC":
+        raise forbidden("Only CDPC can unlock a profile that is not awaiting verification.")
     if s.placement == "PLACED":
         raise bad("This profile is policy-locked after placement.")
     was_locked = s.locked
@@ -133,7 +133,7 @@ def request_revision(roll: str, body: RevisionIn, actor: Actor = Depends(get_act
     notify(db, s.roll, f"Revision requested on your Profile Audit: {reason}", "/student/profile")
     log(db, actor, "Profile", "REVISION_REQUESTED", f"{s.roll} ({s.name}): {reason}")
     if was_locked:
-        log(db, actor, "Profile", "PROFILE_UNLOCKED", f"{s.roll} academic record unlocked by CCPC for revision.")
+        log(db, actor, "Profile", "PROFILE_UNLOCKED", f"{s.roll} academic record unlocked by CDPC for revision.")
     db.commit()
     return S.student_out(s)
 

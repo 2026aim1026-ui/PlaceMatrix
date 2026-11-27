@@ -7,7 +7,7 @@ import { formatFull } from '../../utils/dateUtils';
 
 /**
  * Shows the exact resume submitted with an application (the frozen copy stored on the server).
- * Access is checked by the backend: the student who applied, CCPC, and the recruitment's current SPOC and verifier.
+ * Access is checked by the backend: the student who applied, CDPC, and the recruitment's current SPOC and verifier.
  */
 export default function SubmittedResumeModal({ application, studentName, onClose }) {
   const [url, setUrl] = useState(null);

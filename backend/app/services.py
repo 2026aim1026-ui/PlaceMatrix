@@ -68,29 +68,29 @@ class Actor:
             raise forbidden(f"This action is not available to the {self.role.title()} role.")
 
     def require_verifier(self) -> None:
-        """CCPC always; VERIFIER only when CCPC granted verification rights (can_verify)."""
-        if self.role == "CCPC":
+        """CDPC always; VERIFIER only when CDPC granted verification rights (can_verify)."""
+        if self.role == "CDPC":
             return
         if self.role == "VERIFIER" and self.user.can_verify:
             return
         if self.role == "VERIFIER":
-            raise forbidden("Your verifier account does not have verification rights. Ask CCPC to enable them.")
-        raise forbidden("Only authorised verifiers or CCPC can do this.")
+            raise forbidden("Your verifier account does not have verification rights. Ask CDPC to enable them.")
+        raise forbidden("Only authorised verifiers or CDPC can do this.")
 
 
 def manages_company(actor: Actor, company: Company | None) -> bool:
-    """CCPC, or the SPOC currently assigned to this recruitment. Checked live on every request, so a
+    """CDPC, or the SPOC currently assigned to this recruitment. Checked live on every request, so a
     reassignment takes effect immediately for both the old and the new SPOC."""
     if company is None:
         return False
-    return actor.role == "CCPC" or (actor.role == "SPOC" and company.assigned_spoc == actor.email)
+    return actor.role == "CDPC" or (actor.role == "SPOC" and company.assigned_spoc == actor.email)
 
 
 def reviews_company(actor: Actor, company: Company | None) -> bool:
-    """CCPC, or the verifier currently assigned to this recruitment."""
+    """CDPC, or the verifier currently assigned to this recruitment."""
     if company is None:
         return False
-    return actor.role == "CCPC" or (actor.role == "VERIFIER" and company.assigned_verifier == actor.email)
+    return actor.role == "CDPC" or (actor.role == "VERIFIER" and company.assigned_verifier == actor.email)
 
 
 def resolve_actor(db: Session, user: User, back_to: str | None = None) -> Actor:

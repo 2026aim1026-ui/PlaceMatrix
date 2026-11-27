@@ -21,9 +21,9 @@ export const STUDENT_NAV = [
 
 // Badge keys are resolved against live counts inside the sidebar.
 export const ADMIN_NAV = {
-  [ROLES.CCPC]: [
+  [ROLES.CDPC]: [
     {
-      section: 'CCPC Administration',
+      section: 'CDPC Administration',
       items: [
         { to: '/admin/dashboard', label: 'Governance Desk', icon: LayoutDashboard },
         { to: '/admin/companies', label: 'Companies & SPOCs', icon: Building2, badge: 'pendingCompanies' },

@@ -16,8 +16,8 @@ import { formatCgpa, formatCtc } from '../../utils/format';
 import { formatDateTime } from '../../utils/dateUtils';
 
 /**
- * Verifier: recruitments CCPC assigned to me, their applicants and the exact resumes they submitted.
- * The list follows the live assignment — if CCPC reassigns a recruitment, it leaves this page (and the
+ * Verifier: recruitments CDPC assigned to me, their applicants and the exact resumes they submitted.
+ * The list follows the live assignment — if CDPC reassigns a recruitment, it leaves this page (and the
  * server stops serving its resumes to me) on the next sync.
  */
 export default function AssignedRecruitments() {
@@ -45,8 +45,8 @@ export default function AssignedRecruitments() {
   if (!companies.length) {
     return (
       <>
-        <PageHeader title="Assigned Recruitments" description="Recruitments where CCPC made you the verifier." />
-        <div className="card"><EmptyState icon={ShieldCheck} title="No recruitments assigned to you" description="When CCPC assigns you as the verifier of a recruitment, its applicants and their submitted resumes appear here." /></div>
+        <PageHeader title="Assigned Recruitments" description="Recruitments where CDPC made you the verifier." />
+        <div className="card"><EmptyState icon={ShieldCheck} title="No recruitments assigned to you" description="When CDPC assigns you as the verifier of a recruitment, its applicants and their submitted resumes appear here." /></div>
       </>
     );
   }
@@ -74,7 +74,7 @@ export default function AssignedRecruitments() {
     <>
       <PageHeader
         title="Assigned Recruitments"
-        description="Recruitments where CCPC made you the verifier: review each applicant's verified profile and the exact resume they submitted."
+        description="Recruitments where CDPC made you the verifier: review each applicant's verified profile and the exact resume they submitted."
         actions={<FilterDropdown label="Drive" value={drive?.id || ''} onChange={setDriveId} showAll={false} className="w-full sm:w-80"
           options={drives.map((d) => ({ value: d.id, label: `${companies.find((c) => c.id === d.companyId)?.name} — ${d.role}` }))} />}
       />

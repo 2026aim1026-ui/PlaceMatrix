@@ -45,7 +45,7 @@ export default function StudentDetailModal({ studentId, onClose }) {
             {canVerify && s.verification === 'PENDING' && (
               <Link to={`/admin/document-review/${s.id}`} className="btn btn-primary" onClick={onClose}><ShieldCheck className="h-4 w-4" /> Open verification workspace</Link>
             )}
-            {me.role === 'CCPC' && <button type="button" className="btn btn-secondary" onClick={() => setEmailing(true)}><Mail className="h-4 w-4" /> Email student</button>}
+            {me.role === 'CDPC' && <button type="button" className="btn btn-secondary" onClick={() => setEmailing(true)}><Mail className="h-4 w-4" /> Email student</button>}
             <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
           </>
         )}

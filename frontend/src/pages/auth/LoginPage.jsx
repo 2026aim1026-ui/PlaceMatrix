@@ -98,7 +98,7 @@ export default function LoginPage() {
           <p className="eyebrow !text-white/50">CDPC · IIT Ropar</p>
           <h1 className="mt-3 text-3xl font-bold leading-tight">One verified record. Every drive. Full audit trail.</h1>
           <p className="mt-4 text-sm leading-relaxed text-white/65">
-            Students apply with a faculty-verified profile, SPOCs run their drives, and CCPC governs deadlines,
+            Students apply with a faculty-verified profile, SPOCs run their drives, and CDPC governs deadlines,
             verification and policy locks from a single desk.
           </p>
           <ul className="mt-8 grid grid-cols-2 gap-3 text-[13px]">
@@ -190,7 +190,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-4 text-center text-xs text-ink-muted">
-            Access is limited to accounts added or invited by CCPC. New students: use the activation link from your invitation.
+            Access is limited to accounts added or invited by CDPC. New students: use the activation link from your invitation.
           </p>
         </div>
       </section>

@@ -39,7 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
     title="PlaceMatrix API",
     version="1.1.0",
-    description="In-house placement portal for CDPC, IIT Ropar — students, verifiers, SPOCs and CCPC administrators.",
+    description="In-house placement portal for CDPC, IIT Ropar — students, verifiers, SPOCs and CDPC administrators.",
 )
 
 app.add_middleware(

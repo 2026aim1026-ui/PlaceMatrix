@@ -39,7 +39,7 @@ class ImportIn(BaseModel):
 
 @router.post("/import")
 def import_fee_paid(body: ImportIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     existing = set(db.scalars(select(Invitation.entry_no)))
     added, errors = [], []
     for i, row in enumerate(body.rows, start=1):
@@ -97,7 +97,7 @@ class SendIn(BaseModel):
 
 @router.post("/send")
 def send_invitations(body: SendIn, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     invs = db.scalars(select(Invitation).where(Invitation.invitation_id.in_(body.ids))).all()
     sent = []
     for inv in invs:
@@ -109,7 +109,7 @@ def send_invitations(body: SendIn, actor: Actor = Depends(get_actor), db: Sessio
         raise bad("No invitable students selected.")
     db.flush()
     emailed = failed = 0
-    if settings.smtp_configured:  # without SMTP, CCPC copies the activation links from the UI
+    if settings.smtp_configured:  # without SMTP, CDPC copies the activation links from the UI
         results = send_and_log(db, actor, "ONBOARDING", [(_onboarding_email(i, S.invite_link(i)), None) for i in sent])
         emailed = sum(1 for r in results if r["status"] == "SENT")
         failed = len(results) - emailed
@@ -122,7 +122,7 @@ def send_invitations(body: SendIn, actor: Actor = Depends(get_actor), db: Sessio
 
 @router.post("/{invitation_id}/link")
 def regenerate_link(invitation_id: str, actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
-    actor.require("CCPC")
+    actor.require("CDPC")
     inv = db.get(Invitation, invitation_id)
     if inv is None:
         raise not_found("Invitation")

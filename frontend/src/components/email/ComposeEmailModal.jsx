@@ -30,7 +30,7 @@ function fill(text, values) {
 /**
  * Compose and send an email (placement invitation or custom message) to students through SMTP.
  * Recipients come from GET /api/email/recipients, which the server limits to what the signed-in user may
- * email (CCPC: everyone; SPOC: applicants of / students eligible for their own recruitments).
+ * email (CDPC: everyone; SPOC: applicants of / students eligible for their own recruitments).
  */
 export default function ComposeEmailModal({ open, onClose, companyId: fixedCompany = null, driveId: initialDrive = null, initialKind = 'INVITATION', preselect = [], title }) {
   const { db, repo, companyById } = useData();
@@ -204,7 +204,7 @@ export default function ComposeEmailModal({ open, onClose, companyId: fixedCompa
           {notConfigured && (
             <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-50 px-3 py-2 text-sm text-amber-800" role="alert">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>Email is not configured on the server yet, so nothing can be sent. {me.role === 'CCPC' ? <>Set the SMTP values in <code>backend/.env</code> and restart the backend — see <Link to="/admin/emails" className="font-semibold underline">Email Center</Link>.</> : 'Ask the CCPC office to configure SMTP.'}</span>
+              <span>Email is not configured on the server yet, so nothing can be sent. {me.role === 'CDPC' ? <>Set the SMTP values in <code>backend/.env</code> and restart the backend — see <Link to="/admin/emails" className="font-semibold underline">Email Center</Link>.</> : 'Ask the CDPC office to configure SMTP.'}</span>
             </p>
           )}
 
@@ -217,7 +217,7 @@ export default function ComposeEmailModal({ open, onClose, companyId: fixedCompa
             </FormField>
             <FormField label="Company">
               <select className="input" value={companyId} disabled={!canPickCompany} onChange={(e) => { setCompanyId(e.target.value); setDriveId(''); }}>
-                {me.role === 'CCPC' && <option value="">{kind === 'INVITATION' ? 'Choose a company' : 'No specific company'}</option>}
+                {me.role === 'CDPC' && <option value="">{kind === 'INVITATION' ? 'Choose a company' : 'No specific company'}</option>}
                 {me.role === 'SPOC' && !companyId && <option value="">Choose one of your companies</option>}
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

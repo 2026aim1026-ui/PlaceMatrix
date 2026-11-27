@@ -93,7 +93,7 @@ export default function Drives() {
     <>
       <PageHeader
         title="Placement Drives"
-        description="JAFs are created by SPOCs and land on the calendar. Only CCPC can extend a deadline, freeze or close a drive."
+        description="JAFs are created by SPOCs and land on the calendar. Only CDPC can extend a deadline, freeze or close a drive."
         actions={<button type="button" className="btn btn-primary" onClick={() => setForm({ drive: null })}><Plus className="h-4 w-4" /> Create drive</button>}
       />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
