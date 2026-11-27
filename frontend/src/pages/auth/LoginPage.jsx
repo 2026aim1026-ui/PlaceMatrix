@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, GraduationCap, ShieldCheck, Briefcase, Landmark, LogIn, RefreshCcw, Info } from 'lucide-react';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useData } from '../../context/DataContext';
 import { ROLE_HOME } from '../../constants/permissions';
 import { EMAIL_PATTERN } from '../../utils/validation';
 import FormField from '../../components/forms/FormField';
-import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import { Logo } from '../../components/layout/Sidebar';
-
-const ICONS = { student: GraduationCap, verifier: ShieldCheck, spoc: Briefcase, ccpc: Landmark };
 
 /** Google Identity Services button, rendered only when the server has GOOGLE_CLIENT_ID configured. */
 function GoogleButton({ clientId, domain, onCredential }) {
@@ -24,7 +21,7 @@ function GoogleButton({ clientId, domain, onCredential }) {
     const render = () => {
       if (cancelled || !window.google?.accounts?.id || !ref.current) return;
       window.google.accounts.id.initialize({ client_id: clientId, callback: (r) => callback.current(r.credential), hd: domain });
-      window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large', width: 360, text: 'signin_with' });
+      window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large', width: 400, text: 'continue_with', shape: 'rectangular', logo_alignment: 'left' });
     };
     if (window.google?.accounts?.id) render();
     else {
@@ -39,18 +36,32 @@ function GoogleButton({ clientId, domain, onCredential }) {
   return <div ref={ref} className="flex justify-center" />;
 }
 
+/** Shown only while GOOGLE_CLIENT_ID is not configured on the server (development). */
+function GoogleFallback({ onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="btn btn-secondary h-11 w-full justify-center gap-3">
+      <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden>
+        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.4-4.8 7.1l7.6 5.9c4.4-4.1 7-10.1 7-17.5z"/>
+        <path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/>
+        <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
+      </svg>
+      Continue with Google
+    </button>
+  );
+}
+
 export default function LoginPage() {
   const { session, login, loginWithGoogle } = useAuth();
-  const { repo, config } = useData();
+  const { config } = useData();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPw, setShowPw] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [confirmReset, setConfirmReset] = useState(false);
   const domain = config.allowedDomain || 'iitrpr.ac.in';
 
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: { email: '', password: '', remember: true },
   });
 
@@ -73,22 +84,9 @@ export default function LoginPage() {
     finish(await login(values.email, values.password, values.remember));
   };
 
-  const quickLogin = async (account) => {
-    setValue('email', account.email);
-    setValue('password', config.demoPassword || '');
-    setAuthError('');
-    finish(await login(account.email, config.demoPassword, true));
-  };
-
   const onGoogle = async (credential) => {
     setAuthError('');
     finish(await loginWithGoogle(credential, true));
-  };
-
-  const doReset = async () => {
-    const res = await repo.resetDemoData();
-    setConfirmReset(false);
-    toast.result(res, 'Demo data reset', 'The original dataset has been restored in PostgreSQL.');
   };
 
   return (
@@ -117,7 +115,7 @@ export default function LoginPage() {
             ))}
           </ul>
         </div>
-        <p className="relative z-10 text-[11px] text-white/40">PlaceMatrix · CS509 PGSL · React + FastAPI + PostgreSQL</p>
+        <p className="relative z-10 text-[11px] text-white/40">© 2026 CDPC · IIT Ropar</p>
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-brand/25 blur-3xl" aria-hidden />
       </section>
 
@@ -126,14 +124,24 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden"><Logo dark={false} /></div>
           <h2 className="text-2xl font-bold text-ink">Sign in</h2>
-          <p className="mt-1 text-sm text-ink-muted">Use your <strong>@{domain}</strong> college account to access the placement portal.</p>
+          <p className="mt-1 text-sm text-ink-muted">Use your <strong>@{domain}</strong> Google account to access the placement portal.</p>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-4">
+          <div className="mt-6">
+            {config.googleClientId ? (
+              <GoogleButton clientId={config.googleClientId} domain={domain} onCredential={onGoogle} />
+            ) : (
+              <GoogleFallback onClick={() => setAuthError('Google sign-in is not configured yet. Set GOOGLE_CLIENT_ID in backend/.env and restart the backend.')} />
+            )}
+          </div>
+
+          <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="eyebrow">or sign in with email</span><span className="h-px flex-1 bg-line" /></div>
+
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <FormField label="College email" required error={errors.email?.message}>
               <input
                 type="email"
                 autoComplete="username"
-                placeholder={`2026aim1028@${domain}`}
+                placeholder={`name@${domain}`}
                 className="input h-10"
                 {...register('email', {
                   required: 'Email is required',
@@ -170,9 +178,6 @@ export default function LoginPage() {
                 <input type="checkbox" className="h-4 w-4 rounded border-line text-brand focus:ring-brand" {...register('remember')} />
                 Remember me
               </label>
-              {config.demoMode && config.demoPassword && (
-                <span className="text-xs text-ink-muted">Demo password: <code className="mono font-semibold text-ink">{config.demoPassword}</code></span>
-              )}
             </div>
 
             {authError && (
@@ -184,69 +189,12 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {config.googleClientId && (
-            <div className="mt-4">
-              <div className="mb-3 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="eyebrow">or</span><span className="h-px flex-1 bg-line" /></div>
-              <GoogleButton clientId={config.googleClientId} domain={domain} onCredential={onGoogle} />
-            </div>
-          )}
-
           <p className="mt-4 text-center text-xs text-ink-muted">
-            New student? Open the activation link from your CCPC invitation to set a password.
+            Access is limited to accounts added or invited by CCPC. New students: use the activation link from your invitation.
           </p>
-
-          {config.demoMode && config.demoAccounts?.length > 0 && (
-            <div className="mt-8">
-              <div className="flex items-center gap-3">
-                <span className="h-px flex-1 bg-line" />
-                <span className="eyebrow">Quick demo login</span>
-                <span className="h-px flex-1 bg-line" />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                {config.demoAccounts.map((a) => {
-                  const Icon = ICONS[a.key] || GraduationCap;
-                  return (
-                    <button
-                      key={a.key}
-                      type="button"
-                      onClick={() => quickLogin(a)}
-                      className="group flex items-start gap-2.5 rounded-xl border border-line bg-white p-3 text-left transition hover:border-brand/50 hover:shadow-md"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand group-hover:bg-brand group-hover:text-white">
-                        <Icon className="h-4 w-4" aria-hidden />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[13px] font-semibold text-ink">{a.label}</span>
-                        <span className="block truncate text-[11px] text-ink-muted">{a.name}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-6 flex items-start gap-2 rounded-lg bg-white p-3 text-[11.5px] text-ink-muted ring-1 ring-line">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
-                <p>
-                  Demo mode is on: every seeded account uses the demo password, and any seeded student signs in with
-                  {' '}<code className="mono">&lt;roll number&gt;@{domain}</code> (e.g. <code className="mono">2026csb1050@{domain}</code>).
-                  <button type="button" onClick={() => setConfirmReset(true)} className="ml-1 inline-flex items-center gap-1 font-semibold text-brand hover:underline">
-                    <RefreshCcw className="h-3 w-3" /> Reset demo data
-                  </button>
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
-      <ConfirmationDialog
-        open={confirmReset}
-        onClose={() => setConfirmReset(false)}
-        onConfirm={doReset}
-        tone="danger"
-        title="Reset demo data?"
-        confirmLabel="Reset data"
-        message="Every table in the PostgreSQL database will be restored to the original seed dataset, for all users."
-      />
     </div>
   );
 }

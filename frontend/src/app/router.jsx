@@ -34,6 +34,9 @@ import Invitations from '../pages/admin/Invitations';
 import AuditTrail from '../pages/admin/AuditTrail';
 import Analytics from '../pages/admin/Analytics';
 import Users from '../pages/admin/Users';
+import Recruitments from '../pages/admin/Recruitments';
+import EmailCenter from '../pages/admin/EmailCenter';
+import AssignedRecruitments from '../pages/admin/AssignedRecruitments';
 
 function HomeRedirect() {
   const { session } = useAuth();
@@ -106,6 +109,15 @@ export default function AppRoutes() {
           </Route>
           <Route element={<RoleGuard permission="admin.users" />}>
             <Route path="users" element={<Users />} />
+          </Route>
+          <Route element={<RoleGuard permission="admin.recruitments" />}>
+            <Route path="recruitments" element={<Recruitments />} />
+          </Route>
+          <Route element={<RoleGuard permission="admin.email" />}>
+            <Route path="emails" element={<EmailCenter />} />
+          </Route>
+          <Route element={<RoleGuard permission="admin.assigned" />}>
+            <Route path="assigned-recruitments" element={<AssignedRecruitments />} />
           </Route>
           <Route path="*" element={<NotFound inline />} />
         </Route>

@@ -1,37 +1,16 @@
-# Python & Virtual Environments
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 .venv/
 venv/
-env/
-ENV/
-
-# Environment files & Secrets
-.env
-*.env
 backend/.env
-frontend/.env
-!.env.example
-!backend/.env.example
-
-# Local Databases
-*.db
-*.sqlite3
-placematrix.db
-backend/placematrix.db
-
-# Uploads & Media
 backend/uploads/*
 !backend/uploads/.gitkeep
+# Emails saved by scripts/dev_smtp_server.py (local testing)
+backend/sent_emails/
 
-# Node & Frontend Build
+# Node
 node_modules/
 frontend/dist/
-dist/
-
-# OS & IDE
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+frontend/.env
+frontend/.env.local

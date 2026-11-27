@@ -34,6 +34,9 @@ const MAP = {
   DUPLICATE: ['gray', 'Duplicate'], INVALID: ['red', 'Invalid'],
   // misc
   PAID: ['green', 'Paid'], MATCH: ['green', 'Values match'], MISMATCH: ['red', 'Mismatch'],
+  // email
+  SENT: ['green', 'Sent'], FAILED: ['red', 'Failed'], INVITATION: ['violet', 'Invitation'], CUSTOM: ['blue', 'Custom'],
+  TEST: ['gray', 'Test'], ASSIGNMENT: ['navy', 'Assignment'], ONBOARDING: ['amber', 'Onboarding'],
 };
 
 export default function StatusBadge({ status, label, tone, icon = false, className = '' }) {

@@ -10,6 +10,7 @@ from .. import serializers as S
 from ..database import get_db
 from ..models import (
     Application,
+    AssignmentHistory,
     AuditLog,
     Company,
     Document,
@@ -35,9 +36,18 @@ def _apps(db: Session, *where) -> list[Application]:
     return list(db.scalars(q))
 
 
+def _counterparts(db: Session, actor: Actor, emails: list[str | None]) -> list[dict]:
+    """Name / title of the people a SPOC or verifier works with on their recruitments (no other fields)."""
+    wanted = {e for e in emails if e and e != actor.email}
+    if not wanted:
+        return []
+    return [{"id": u.email, "email": u.email, "name": u.name, "role": u.role, "title": u.title}
+            for u in db.scalars(select(User).where(User.email.in_(wanted)))]
+
+
 def build_state(db: Session, actor: Actor) -> dict:
     empty = {k: [] for k in ("adminUsers", "students", "documents", "companies", "drives", "applications",
-                             "invitations", "tickets", "audit", "notifications")}
+                             "invitations", "tickets", "audit", "notifications", "assignmentHistory")}
     state = dict(empty)
     role = actor.role
 
@@ -75,16 +85,23 @@ def build_state(db: Session, actor: Actor) -> dict:
         state["tickets"] = [S.ticket_out(t) for t in db.scalars(select(Ticket).order_by(Ticket.created_at))]
         audit = list(db.scalars(select(AuditLog).order_by(AuditLog.log_id.desc()).limit(AUDIT_LIMIT)))
         state["audit"] = [S.audit_out(e) for e in reversed(audit)]
+        state["assignmentHistory"] = [S.assignment_out(h) for h in db.scalars(
+            select(AssignmentHistory).order_by(AssignmentHistory.history_id.desc()).limit(1000))]
         return state
 
     if role == "VERIFIER":
         # Verification desk: student records and their documents. No tickets, invitations or company contacts.
-        state["adminUsers"] = me_user
+        # Applications are limited to the recruitments currently assigned to this verifier.
+        companies = list(db.scalars(select(Company).order_by(Company.name)))
+        assigned = [c.company_id for c in companies if c.assigned_verifier == actor.email]
+        drives = list(db.scalars(select(Drive).where(Drive.status != "DRAFT")))
+        assigned_drives = [d.drive_id for d in drives if d.company_id in assigned]
+        state["adminUsers"] = me_user + _counterparts(db, actor, [c.assigned_spoc for c in companies if c.company_id in assigned])
         state["students"] = [S.student_out(s) for s in db.scalars(select(Student).order_by(Student.roll))]
         state["documents"] = [S.document_out(d) for d in db.scalars(select(Document).order_by(Document.uploaded_at))]
-        state["companies"] = [S.company_out(c, include_contact=False) for c in db.scalars(select(Company).order_by(Company.name))]
-        state["drives"] = [S.drive_out(d) for d in db.scalars(select(Drive).where(Drive.status != "DRAFT"))]
-        state["applications"] = [S.application_out(a) for a in _apps(db)]
+        state["companies"] = [S.company_out(c, include_contact=False) for c in companies]
+        state["drives"] = [S.drive_out(d) for d in drives]
+        state["applications"] = [S.application_out(a) for a in _apps(db, Application.drive_id.in_(assigned_drives))] if assigned_drives else []
     elif role == "SPOC":
         # Workspace isolation: only assigned companies, their drives and their applicants.
         companies = list(db.scalars(select(Company).where(Company.assigned_spoc == actor.email).order_by(Company.name)))
@@ -96,7 +113,7 @@ def build_state(db: Session, actor: Actor) -> dict:
         if actor.user.linked_student_roll:
             rolls.add(actor.user.linked_student_roll)
         resume_ids = {a.resume_doc_id for a in apps if a.resume_doc_id}
-        state["adminUsers"] = me_user
+        state["adminUsers"] = me_user + _counterparts(db, actor, [c.assigned_verifier for c in companies])
         state["companies"] = [S.company_out(c) for c in companies]
         state["drives"] = [S.drive_out(d) for d in drives]
         state["applications"] = [S.application_out(a) for a in apps]

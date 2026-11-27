@@ -221,6 +221,7 @@ def public_config():
         "allowedDomain": settings.allowed_email_domain,
         "googleClientId": settings.google_client_id or None,
         "maxUploadMb": settings.max_upload_bytes // (1024 * 1024),
+        "maxResumes": settings.max_resumes,
     }
 
 

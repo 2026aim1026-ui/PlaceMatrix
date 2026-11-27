@@ -8,6 +8,7 @@ from decimal import Decimal
 from .config import settings
 from .models import (
     Application,
+    AssignmentHistory,
     AuditLog,
     Company,
     Document,
@@ -90,6 +91,7 @@ def document_out(d: Document) -> dict:
         "remarks": d.remarks or "",
         "claimedValue": d.claimed_value,
         "isDefault": d.is_default,
+        "version": d.version or 1,
         "hasFile": bool(d.file_path),
         "reviewedBy": d.reviewed_by,
         "reviewedAt": iso(d.reviewed_at),
@@ -104,6 +106,7 @@ def company_out(c: Company, *, include_contact: bool = True) -> dict:
         "website": c.website or "",
         "description": c.description or "",
         "spocId": c.assigned_spoc,
+        "verifierId": c.assigned_verifier,
         "status": c.status,
         "active": c.active,
         "approvedAt": iso(c.approved_at),
@@ -147,6 +150,15 @@ def application_out(a: Application) -> dict:
         "stage": a.stage,
         "updatedAt": iso(a.updated_at),
         "history": [{"stage": e.stage, "at": iso(e.at), "by": e.actor or "", "note": e.note or ""} for e in a.events],
+        # The frozen copy submitted with this application (served by GET /api/applications/{id}/resume).
+        "resume": {
+            "label": a.resume_label,
+            "fileName": a.resume_file_name,
+            "size": a.resume_size,
+            "version": a.resume_version,
+            "submittedAt": iso(a.resume_submitted_at),
+            "available": bool(a.resume_snapshot_path or a.resume_doc_id),
+        } if (a.resume_file_name or a.resume_snapshot_path) else None,
     }
 
 
@@ -213,4 +225,19 @@ def notification_out(n: Notification) -> dict:
         "at": iso(n.created_at),
         "read": n.is_read,
         "link": n.link,
+    }
+
+
+def assignment_out(h: AssignmentHistory) -> dict:
+    return {
+        "id": h.history_id,
+        "companyId": h.company_id,
+        "role": h.assignment_role,
+        "previousId": h.previous_email,
+        "previousName": h.previous_name,
+        "newId": h.new_email,
+        "newName": h.new_name,
+        "reason": h.reason or "",
+        "changedBy": h.changed_by,
+        "at": iso(h.changed_at),
     }

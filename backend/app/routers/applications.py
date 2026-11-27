@@ -19,7 +19,8 @@ from ..database import get_db
 from ..models import Application, ApplicationEvent, Company, Document, Drive, Student
 from ..rules import STAGE_LABELS, TERMINAL_STAGES, can_apply, check_transition, parse_roll_numbers, tokenize, utcnow
 from ..security import short_id
-from ..services import Actor, bad, close_expired_drives, conflict, forbidden, get_actor, log, not_found, notify, drive_name
+from ..migrations import snapshot_resume_file
+from ..services import Actor, bad, close_expired_drives, conflict, drive_name, forbidden, get_actor, log, manages_company, not_found, notify
 
 router = APIRouter(prefix="/api", tags=["applications & shortlisting"])
 
@@ -54,12 +55,15 @@ def apply(body: ApplyIn, actor: Actor = Depends(get_actor), db: Session = Depend
     if not ok:
         raise bad(reason)
     resume = db.get(Document, body.resumeId or s.default_resume_id or "")
-    if resume is None or resume.roll != s.roll or resume.doc_type != "RESUME":
-        raise bad("Select a resume to attach")
+    if resume is None or resume.doc_type != "RESUME":
+        raise bad("Select one of your resumes to attach")
+    if resume.roll != s.roll:
+        raise forbidden("You can only submit your own resume.")
     if resume.status != "APPROVED":
         raise bad("Only verified resumes can be attached to an application")
     now = utcnow()
-    note = f"Applied with {resume.label or resume.file_name}"
+    label = resume.label or resume.file_name
+    note = f"Applied with {label} (v{resume.version})"
     if existing is not None:  # re-applying after a withdrawal reuses the (drive, roll) row
         app = existing
         app.stage, app.resume_doc_id, app.applied_at, app.updated_at = "APPLIED", resume.doc_id, now, now
@@ -67,8 +71,16 @@ def apply(body: ApplyIn, actor: Actor = Depends(get_actor), db: Session = Depend
         app = Application(application_id=short_id("a"), drive_id=drive.drive_id, roll=s.roll, resume_doc_id=resume.doc_id,
                           stage="APPLIED", applied_at=now, updated_at=now)
         db.add(app)
+    # Freeze a copy of the selected resume for this application only.
+    path, digest, size = snapshot_resume_file(resume.file_path, app.application_id, resume.file_name)
+    if path is None:
+        raise bad("The selected resume file is missing on the server. Upload it again and retry.")
+    app.resume_label, app.resume_file_name, app.resume_file_type = label, resume.file_name, resume.file_type
+    app.resume_size, app.resume_sha256, app.resume_version = size, digest, resume.version
+    app.resume_snapshot_path, app.resume_submitted_at = path, now
     app.events.append(ApplicationEvent(stage="APPLIED", at=now, actor="Student", note=note))
-    log(db, actor, "Application", "APPLICATION_SUBMITTED", f"{s.roll} applied to {drive_name(db, drive)} with {resume.file_name}.")
+    log(db, actor, "Application", "APPLICATION_SUBMITTED",
+        f"{s.roll} applied to {drive_name(db, drive)} with resume '{label}' ({resume.file_name}, v{resume.version}).")
     try:
         db.commit()
     except IntegrityError:
@@ -99,9 +111,7 @@ def withdraw(application_id: str, actor: Actor = Depends(get_actor), db: Session
 
 
 def _assert_manages(actor: Actor, drive: Drive) -> None:
-    if actor.role == "CCPC":
-        return
-    if actor.role == "SPOC" and drive.company.assigned_spoc == actor.email:
+    if manages_company(actor, drive.company):
         return
     raise forbidden("You can only manage applicants of drives assigned to you.")
 
@@ -267,11 +277,11 @@ def export_roster(drive_id: str, q: str = "", branch: str = "", stage: str = "",
             continue
         if term and term not in f"{s.roll} {s.name}".lower():
             continue
-        resume = db.get(Document, a.resume_doc_id) if a.resume_doc_id else None
         rows.append([
             s.roll, s.name, s.degree, s.branch, f"{float(s.cgpa):.2f}" if s.cgpa is not None else "",
             f"{float(s.class10):.2f}" if s.class10 is not None else "", f"{float(s.class12):.2f}" if s.class12 is not None else "",
-            s.backlogs, s.user_email, s.phone, resume.file_name if resume else "", STAGE_LABELS[a.stage],
+            s.backlogs, s.user_email, s.phone,
+            f"{a.resume_label} ({a.resume_file_name})" if a.resume_file_name else "", STAGE_LABELS[a.stage],
             a.applied_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         ])
     if not rows:
@@ -279,7 +289,7 @@ def export_roster(drive_id: str, q: str = "", branch: str = "", stage: str = "",
     buf = io.StringIO()
     writer = csv.writer(buf, quoting=csv.QUOTE_ALL, lineterminator="\r\n")
     writer.writerow(["Roll Number", "Name", "Degree", "Branch", "CGPA", "10th %", "12th %", "Backlogs", "Email", "Phone",
-                     "Resume file", "Stage", "Applied At"])
+                     "Submitted resume", "Stage", "Applied At"])
     for r in rows:
         writer.writerow([safe_cell(c) for c in r])
     name = drive_name(db, drive)

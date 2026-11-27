@@ -22,6 +22,7 @@ const EMPTY = Object.freeze({
   tickets: [],
   audit: [],
   notifications: [],
+  assignmentHistory: [],
 });
 
 let state = EMPTY;
@@ -89,7 +90,7 @@ export function clear() {
 }
 
 let pollTimer = null;
-const POLL_MS = 4000;
+const POLL_MS = 3000;
 
 async function poll() {
   if (document.visibilityState === 'hidden') return;
@@ -190,6 +191,23 @@ export const reviewDocument = (_actor, docId, status, remarks = '') => run(() =>
 /** Object URL for an uploaded file (PDF / image). The caller revokes it. */
 export const getFileUrl = (docId) => fetchObjectUrl(`/api/documents/${docId}/file`);
 
+/** Rename a resume / certificate in the student's library. */
+export const renameDocument = (docId, label) => run(() => api.patch(`/api/documents/${docId}`, { label }));
+
+/** Replace a resume with a new version (applications keep the copy they were submitted with). */
+export function uploadResumeVersion(docId, file, onProgress) {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  return run(() => uploadWithProgress(`/api/documents/${docId}/version`, form, onProgress));
+}
+
+/** Object URL for the frozen resume submitted with an application. The caller revokes it. */
+export const getSubmittedResumeUrl = (applicationId) => fetchObjectUrl(`/api/applications/${applicationId}/resume`);
+
+/** All submitted resumes of a drive as a ZIP (optionally only one stage). */
+export const downloadDriveResumes = (driveId, stage = '') =>
+  run(() => downloadFile(`/api/drives/${driveId}/resumes.zip${stage ? `?stage=${stage}` : ''}`, 'resumes.zip'));
+
 export const createTicket = (_actor, _studentId, { type, field, requestedValue, justification }) =>
   run(() => api.post('/api/tickets', { type, field, requestedValue, justification }));
 
@@ -218,6 +236,12 @@ export const saveCompany = (_actor, data) => run(() => api.post('/api/companies'
 export const approveCompany = (_actor, companyId) => run(() => api.post(`/api/companies/${companyId}/approve`));
 
 export const assignSpoc = (_actor, companyId, spocId) => run(() => api.post(`/api/companies/${companyId}/assign-spoc`, { spocId }));
+
+/** CCPC: change the SPOC and/or verifier of a (running) recruitment. Only keys present are changed; null unassigns. */
+export const updateAssignment = (companyId, patch) => run(() => api.put(`/api/recruitments/${companyId}/assignment`, patch));
+
+export const fetchAssignmentHistory = (companyId) =>
+  run(() => api.get(`/api/recruitments/${companyId}/history`), { refreshAfter: false });
 
 export const setCompanyActive = (_actor, companyId, active) => run(() => api.post(`/api/companies/${companyId}/active`, { active }));
 
@@ -256,6 +280,33 @@ export const updateUser = (email, patch) => run(() => api.put(`/api/users/${enco
 export const resetUserPassword = (email) => run(() => api.post(`/api/users/${encodeURIComponent(email)}/reset-password`));
 
 export const fetchAnalytics = () => run(() => api.get('/api/analytics/summary'), { refreshAfter: false });
+
+// ---------------------------------------------------------------------------
+// Email (SMTP)
+// ---------------------------------------------------------------------------
+
+export const getEmailStatus = () => run(() => api.get('/api/email/status'), { refreshAfter: false });
+
+export const sendTestEmail = (to) => run(() => api.post('/api/email/test', { to: to || null }));
+
+/** Students the signed-in user may email for a recruitment, with eligibility and application stage. */
+export function getEmailRecipients({ driveId, companyId } = {}) {
+  const params = new URLSearchParams();
+  if (driveId) params.set('driveId', driveId);
+  if (companyId) params.set('companyId', companyId);
+  return run(() => api.get(`/api/email/recipients?${params}`), { refreshAfter: false });
+}
+
+/** { recipients: [roll], subject, body, kind: 'INVITATION' | 'CUSTOM', driveId?, companyId? } */
+export const sendEmail = (payload) => run(() => api.post('/api/email/send', payload));
+
+export function getEmailLogs({ driveId, companyId, status } = {}) {
+  const params = new URLSearchParams();
+  if (driveId) params.set('driveId', driveId);
+  if (companyId) params.set('companyId', companyId);
+  if (status) params.set('status', status);
+  return run(() => api.get(`/api/email/logs?${params}`), { refreshAfter: false });
+}
 
 export async function markNotificationsRead() {
   try {

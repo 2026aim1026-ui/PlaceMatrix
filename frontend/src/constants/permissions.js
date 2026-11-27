@@ -14,6 +14,9 @@ export const PERMISSIONS = {
   'admin.audit': [ROLES.CCPC],
   'admin.analytics': [ROLES.CCPC],
   'admin.users': [ROLES.CCPC],
+  'admin.recruitments': [ROLES.CCPC],
+  'admin.email': [ROLES.CCPC, ROLES.SPOC],
+  'admin.assigned': [ROLES.VERIFIER],
   // fine-grained actions
   'drive.extendDeadline': [ROLES.CCPC],
   'drive.create': [ROLES.CCPC, ROLES.SPOC],
@@ -21,6 +24,9 @@ export const PERMISSIONS = {
   'profile.verify': [ROLES.CCPC, ROLES.VERIFIER],
   'ticket.resolve': [ROLES.CCPC],
   'student.unlock': [ROLES.CCPC],
+  'recruitment.assign': [ROLES.CCPC],
+  'email.send': [ROLES.CCPC, ROLES.SPOC],
+  'email.test': [ROLES.CCPC],
 };
 
 export function can(role, permission) {

@@ -18,8 +18,10 @@ from sqlalchemy.orm import Session
 from . import pdfgen
 from .config import settings
 from .database import SessionLocal, engine
+from .migrations import snapshot_resume_file
 from .models import (
     Application,
+    AssignmentHistory,
     ApplicationEvent,
     AuditLog,
     Company,
@@ -47,6 +49,11 @@ STAFF = [
     (f"simran.kaur@{DOMAIN}", "Simran Kaur", "SPOC", "Student SPOC", False, None),
 ]
 SPOC = {"u-spoc1": f"spoc@{DOMAIN}", "u-spoc2": f"simran.kaur@{DOMAIN}"}
+# Recruitment verifier of each company (reviews the resumes its applicants submit).
+VERIFIER_OF = {"c-01": f"verifier@{DOMAIN}", "c-03": f"verifier@{DOMAIN}", "c-06": f"verifier@{DOMAIN}", "c-07": f"verifier@{DOMAIN}",
+               "c-02": f"neha.gupta@{DOMAIN}", "c-04": f"neha.gupta@{DOMAIN}", "c-05": f"neha.gupta@{DOMAIN}"}
+# Applications submitted with a resume other than the student's default (doc-005 = Rohan's "Data Resume").
+RESUME_OVERRIDE = {"a-02": "doc-005"}
 
 STUDENT_ROWS = [
     # id, roll, name, degree, branch, cgpa, sem, c10, c12, backlogs, verification, extras
@@ -292,9 +299,15 @@ def seed(db: Session, now: datetime | None = None) -> None:
     # --- companies & drives --------------------------------------------------------------------
     for cid, name, industry, web, desc, contact, rec, phone, spoc, status in COMPANIES:
         db.add(Company(company_id=cid, name=name, industry=industry, website=web, description=desc, contact_name=contact,
-                       recruiter_email=rec, phone=phone, assigned_spoc=SPOC.get(spoc), status=status, active=True,
+                       recruiter_email=rec, phone=phone, assigned_spoc=SPOC.get(spoc), assigned_verifier=VERIFIER_OF.get(cid),
+                       status=status, active=True,
                        approved_at=None if status == "PENDING_APPROVAL" else now - 10 * DAY, created_at=now - 12 * DAY))
     db.flush()
+    # One earlier reassignment, so the history panel has something to show.
+    db.add(AssignmentHistory(company_id="c-04", assignment_role="VERIFIER", previous_email=f"verifier@{DOMAIN}",
+                             previous_name="Dr. Subrat Kar", new_email=f"neha.gupta@{DOMAIN}", new_name="Prof. Neha Gupta",
+                             reason="Balancing review load across verifiers", changed_by="CCPC Office",
+                             changed_by_email=f"ccpc@{DOMAIN}", changed_at=now - 2 * DAY))
     creator = {"Ananya Sharma": f"spoc@{DOMAIN}", "Simran Kaur": f"simran.kaur@{DOMAIN}"}
     for d in _drives(now):
         db.add(Drive(**{**d, "ctc": D(d["ctc"]), "min_cgpa": D(d["min_cgpa"]), "created_by_email": creator.get(d["created_by"])}))
@@ -307,12 +320,17 @@ def seed(db: Session, now: datetime | None = None) -> None:
         applied = now - days_ago * DAY
         steps = ["APPLIED", "UNDER_REVIEW", stage] if stage in ("REJECTED", "WITHDRAWN") else PATH[: PATH.index(stage) + 1]
         span = max(timedelta(hours=1), days_ago * DAY - 2 * HOUR)
-        app = Application(application_id=aid, drive_id=did, roll=roll, resume_doc_id=default_resume.get(sid), stage=stage, applied_at=applied)
+        resume = db.get(Document, RESUME_OVERRIDE.get(aid) or default_resume.get(sid))
+        app = Application(application_id=aid, drive_id=did, roll=roll, resume_doc_id=resume.doc_id, stage=stage, applied_at=applied)
+        snap, digest, size = snapshot_resume_file(resume.file_path, aid, resume.file_name)
+        app.resume_label, app.resume_file_name, app.resume_file_type = resume.label or resume.file_name, resume.file_name, resume.file_type
+        app.resume_size, app.resume_sha256, app.resume_version = size, digest, resume.version or 1
+        app.resume_snapshot_path, app.resume_submitted_at = snap, applied
         for k, st in enumerate(steps):
             app.events.append(ApplicationEvent(
                 stage=st, at=applied + span * k / max(1, len(steps)),
                 actor="Student" if k == 0 or st == "WITHDRAWN" else "SPOC",
-                note="Application submitted with default resume" if k == 0 else ("Not shortlisted after assessment" if st == "REJECTED" else ""),
+                note=f"Applied with {resume.label or resume.file_name} (v1)" if k == 0 else ("Not shortlisted after assessment" if st == "REJECTED" else ""),
             ))
         app.updated_at = app.events[-1].at
         db.add(app)
@@ -360,7 +378,7 @@ def seed(db: Session, now: datetime | None = None) -> None:
     db.commit()
 
 
-TABLES = ["notifications", "audit_logs", "unfreeze_tickets", "application_events", "applications", "invitations",
+TABLES = ["email_logs", "assignment_history", "notifications", "audit_logs", "unfreeze_tickets", "application_events", "applications", "invitations",
           "placement_drives", "companies", "documents", "students", "users"]
 
 

@@ -14,6 +14,7 @@ from ..database import get_db
 from ..models import Company, Drive, User
 from ..rules import BRANCH_CODES, DEGREES, to_decimal, utcnow
 from ..security import short_id
+from .recruitments import apply_assignment
 from ..services import Actor, bad, conflict, forbidden, get_actor, log, not_found, notify_all_students, drive_name
 
 router = APIRouter(prefix="/api", tags=["companies & drives"])
@@ -42,15 +43,7 @@ class CompanyIn(BaseModel):
     recruiterEmail: str = Field(default="", max_length=254)
     phone: str = Field(default="", max_length=32)
     spocId: str | None = None
-
-
-def _spoc(db: Session, email: str | None) -> User | None:
-    if not email:
-        return None
-    u = db.get(User, email)
-    if u is None or u.role != "SPOC" or not u.is_active:
-        raise bad("Choose an active SPOC.")
-    return u
+    verifierId: str | None = None
 
 
 @router.post("/companies")
@@ -62,27 +55,24 @@ def save_company(body: CompanyIn, actor: Actor = Depends(get_actor), db: Session
     dup = db.scalar(select(Company).where(func.lower(Company.name) == name.lower(), Company.company_id != (body.id or "")))
     if dup:
         raise conflict("A company with this name already exists.")
-    spoc = _spoc(db, body.spocId)
     fields = dict(name=name, industry=body.industry.strip(), website=body.website.strip(), description=body.description.strip(),
                   contact_name=body.contactName.strip(), recruiter_email=body.recruiterEmail.strip(), phone=body.phone.strip())
     if body.id:
         c = db.get(Company, body.id)
         if c is None:
             raise not_found("Company")
-        prev = c.assigned_spoc
         for k, v in fields.items():
             setattr(c, k, v)
-        c.assigned_spoc = spoc.email if spoc else None
         log(db, actor, "Company", "COMPANY_UPDATED", f"{name} details updated.")
-        if prev != c.assigned_spoc:
-            log(db, actor, "Company", "SPOC_ASSIGNED", f"{name} assigned to SPOC {spoc.name if spoc else '—'}.")
     else:
-        c = Company(company_id=short_id("c"), status="APPROVED", active=True, approved_at=utcnow(),
-                    assigned_spoc=spoc.email if spoc else None, **fields)
+        c = Company(company_id=short_id("c"), status="APPROVED", active=True, approved_at=utcnow(), **fields)
         db.add(c)
+        db.flush()
         log(db, actor, "Company", "COMPANY_APPROVED", f"{name} approved and added to the season.")
-        if spoc:
-            log(db, actor, "Company", "SPOC_ASSIGNED", f"{name} assigned to SPOC {spoc.name}.")
+    # Assignment changes go through the same path as the Recruitments page (history + audit).
+    apply_assignment(db, actor, c, "SPOC", body.spocId)
+    if "verifierId" in body.model_fields_set:
+        apply_assignment(db, actor, c, "VERIFIER", body.verifierId)
     db.commit()
     return S.company_out(c)
 
@@ -110,9 +100,7 @@ def assign_spoc(company_id: str, body: AssignIn, actor: Actor = Depends(get_acto
     c = db.get(Company, company_id)
     if c is None:
         raise not_found("Company")
-    spoc = _spoc(db, body.spocId)
-    c.assigned_spoc = spoc.email
-    log(db, actor, "Company", "SPOC_ASSIGNED", f"{c.name} assigned to SPOC {spoc.name}.")
+    apply_assignment(db, actor, c, "SPOC", body.spocId)
     db.commit()
     return S.company_out(c)
 

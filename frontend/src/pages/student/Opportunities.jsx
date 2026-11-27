@@ -9,6 +9,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Modal from '../../components/common/Modal';
 import Countdown from '../../components/common/Countdown';
 import OpportunityCard from '../../components/student/OpportunityCard';
+import ApplyDialog from '../../components/student/ApplyDialog';
 import EligibilityChecklist from '../../components/student/EligibilityChecklist';
 import { useApply } from '../../components/student/useApply';
 import { useStudentData } from '../../hooks/useStudentData';
@@ -33,6 +34,7 @@ export default function Opportunities() {
   const [status, setStatus] = useState('');
   const [sort, setSort] = useState('deadline');
   const [why, setWhy] = useState(null);
+  const [applyTo, setApplyTo] = useState(null);
 
   const isOpen = (d) => d.status === 'OPEN' && new Date(d.deadline).getTime() > now;
 
@@ -143,10 +145,19 @@ export default function Opportunities() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {list.map((d) => (
-            <OpportunityCard key={d.id} drive={d} resumes={resumes} defaultResumeId={student.defaultResumeId} onApply={apply} onWhy={setWhy} now={now} />
+            <OpportunityCard key={d.id} drive={d} onApply={setApplyTo} onWhy={setWhy} now={now} />
           ))}
         </div>
       )}
+
+      <ApplyDialog
+        drive={applyTo}
+        resumes={resumes}
+        defaultResumeId={student.defaultResumeId}
+        student={student}
+        onClose={() => setApplyTo(null)}
+        onSubmit={apply}
+      />
 
       <Modal
         open={Boolean(why)}

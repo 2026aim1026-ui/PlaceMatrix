@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Search, FileText, UserCheck, FolderOpen, HelpCircle,
   Building2, Briefcase, GraduationCap, ShieldCheck, Mail, Unlock, ScrollText,
-  Users, ListChecks, Star, BarChart3, UserCog,
+  Users, ListChecks, Star, BarChart3, UserCog, Network, Send, ClipboardCheck,
 } from 'lucide-react';
 import { ROLES } from './index';
 
@@ -27,10 +27,12 @@ export const ADMIN_NAV = {
       items: [
         { to: '/admin/dashboard', label: 'Governance Desk', icon: LayoutDashboard },
         { to: '/admin/companies', label: 'Companies & SPOCs', icon: Building2, badge: 'pendingCompanies' },
+        { to: '/admin/recruitments', label: 'Recruitments', icon: Network, badge: 'unassignedRecruitments' },
         { to: '/admin/drives', label: 'Placement Drives', icon: Briefcase },
         { to: '/admin/students', label: 'Student Records', icon: GraduationCap },
         { to: '/admin/verification-queue', label: 'Verification Desk', icon: ShieldCheck, badge: 'pendingVerifications' },
         { to: '/admin/invitations', label: 'Onboarding Invites', icon: Mail, badge: 'notInvited' },
+        { to: '/admin/emails', label: 'Email Center', icon: Send },
         { to: '/admin/correction-requests', label: 'Unfreeze Tickets', icon: Unlock, badge: 'openTickets' },
         { to: '/admin/audit-trail', label: 'Audit Trail', icon: ScrollText },
         { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
@@ -52,6 +54,7 @@ export const ADMIN_NAV = {
       items: [
         { to: '/admin/verification-queue', label: 'Verification Queue', icon: ListChecks, badge: 'pendingVerifications' },
         { to: '/admin/students', label: 'Verified Records', icon: GraduationCap },
+        { to: '/admin/assigned-recruitments', label: 'Assigned Recruitments', icon: ClipboardCheck, badge: 'verifierRecruitments' },
       ],
     },
   ],
@@ -62,6 +65,7 @@ export const ADMIN_NAV = {
         { to: '/admin/spoc/companies', label: 'Assigned Companies', icon: Building2, badge: 'spocCompanies' },
         { to: '/admin/spoc/roster', label: 'Applicant Roster', icon: Users },
         { to: '/admin/spoc/bulk-shortlist', label: 'Shortlist Parser', icon: Star },
+        { to: '/admin/emails', label: 'Email Center', icon: Send },
       ],
     },
   ],

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Users, Star, ClipboardList, Trophy, Download, ListChecks, Lock, Briefcase } from 'lucide-react';
+import { Users, Star, ClipboardList, Trophy, Download, ListChecks, Lock, Briefcase, Eye, Mail, FileArchive } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -10,6 +10,8 @@ import EmptyState from '../../components/common/EmptyState';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import Countdown from '../../components/common/Countdown';
 import DataTable from '../../components/tables/DataTable';
+import SubmittedResumeModal from '../../components/documents/SubmittedResumeModal';
+import ComposeEmailModal from '../../components/email/ComposeEmailModal';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -29,7 +31,7 @@ export const ROSTER_CSV_COLUMNS = [
   { header: 'Backlogs', value: (r) => r.student.backlogs },
   { header: 'Email', value: (r) => r.student.email },
   { header: 'Phone', value: (r) => r.student.phone },
-  { header: 'Resume file', value: (r) => r.resume?.fileName || '' },
+  { header: 'Submitted resume', value: (r) => (r.resume ? `${r.resume.label} (${r.resume.fileName})` : '') },
   { header: 'Stage', value: (r) => STAGE_LABELS[r.stage] },
   { header: 'Applied At', value: (r) => formatFull(r.appliedAt) },
 ];
@@ -76,11 +78,12 @@ export function DriveHeader({ drive, company }) {
 }
 
 export function useDriveRows(drive) {
-  const { db, studentById, docById } = useData();
+  const { db, studentById } = useData();
+  // `resume` is the frozen copy submitted with the application (not the student's current library).
   return useMemo(() => (drive ? db.applications
     .filter((a) => a.driveId === drive.id)
-    .map((a) => ({ ...a, student: studentById.get(a.studentId), resume: docById.get(a.resumeId) }))
-    .filter((r) => r.student) : []), [db.applications, drive, studentById, docById]);
+    .map((a) => ({ ...a, student: studentById.get(a.studentId) }))
+    .filter((r) => r.student) : []), [db.applications, drive, studentById]);
 }
 
 /**
@@ -111,6 +114,8 @@ export default function ApplicantRoster() {
   const [selected, setSelected] = useState(() => new Set());
   const [bulkStage, setBulkStage] = useState('SHORTLISTED');
   const [pending, setPending] = useState(null); // { ids, stage, label }
+  const [viewResume, setViewResume] = useState(null);
+  const [emailTo, setEmailTo] = useState(null); // array of rolls
 
   const filtered = rows.filter((r) => {
     if (branch && r.student.branch !== branch) return false;
@@ -153,6 +158,12 @@ export default function ApplicantRoster() {
     setPending(null);
   };
 
+  const downloadZip = async () => {
+    const res = await repo.downloadDriveResumes(drive.id, stage);
+    if (res.ok) toast.success('Resumes downloaded', `${res.result.name}`);
+    else toast.error('Download failed', res.error);
+  };
+
   const columns = [
     {
       key: 'select',
@@ -167,7 +178,11 @@ export default function ApplicantRoster() {
     { key: 'c10', header: '10th %', render: (r) => Number(r.student.class10).toFixed(2) },
     { key: 'c12', header: '12th %', render: (r) => Number(r.student.class12).toFixed(2) },
     { key: 'backlogs', header: 'Backlogs', render: (r) => r.student.backlogs },
-    { key: 'resume', header: 'Resume', render: (r) => (r.resume ? <span title={r.resume.fileName}><StatusBadge status={r.resume.status} label={r.resume.status === 'APPROVED' ? 'Verified ✓' : undefined} /></span> : '—') },
+    { key: 'resume', header: 'Submitted resume', render: (r) => (r.resume ? (
+      <button type="button" className="btn btn-ghost btn-xs max-w-[170px]" title={`${r.resume.label} · ${r.resume.fileName}`} onClick={(e) => { e.stopPropagation(); setViewResume(r); }} disabled={!r.resume.available}>
+        <Eye className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{r.resume.label}</span>
+      </button>
+    ) : '—') },
     { key: 'stage', header: 'Stage', sortable: true, render: (r) => <StatusBadge status={r.stage} /> },
     {
       key: 'action',
@@ -219,6 +234,9 @@ export default function ApplicantRoster() {
           <SearchInput value={q} onChange={setQ} placeholder="Filter by roll number or name" className="lg:flex-1" />
           <FilterDropdown label="Branch" value={branch} onChange={setBranch} options={BRANCH_CODES} allLabel="All branches" />
           <FilterDropdown label="Stage" value={stage} onChange={setStage} options={STAGE_OPTIONS.map((s) => ({ value: s, label: STAGE_LABELS[s] }))} allLabel="All stages" />
+          <button type="button" className="btn btn-secondary" onClick={downloadZip} disabled={!rows.length} title="Every submitted resume (as submitted) in one ZIP — filtered by the stage selector">
+            <FileArchive className="h-4 w-4" /> Resumes (ZIP)
+          </button>
           <button type="button" className="btn btn-primary" onClick={() => exportRoster({ rows: filtered, drive, repo, toast, filters: { q, branch, stage } })}>
             <Download className="h-4 w-4" /> Export Roster (CSV)
           </button>
@@ -234,6 +252,7 @@ export default function ApplicantRoster() {
             <button type="button" className="btn btn-primary btn-sm" onClick={() => setPending({ ids: selectedIds, stage: bulkStage, label: `${selectedIds.length} selected applicant(s)` })}>
               Apply to {selectedIds.length} selected
             </button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEmailTo([...new Set(rows.filter((r) => selected.has(r.id)).map((r) => r.studentId))])}><Mail className="h-3.5 w-3.5" /> Email selected</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>Clear selection</button>
           </div>
         )}
@@ -262,6 +281,15 @@ export default function ApplicantRoster() {
             )}
           </>
         ) : ''}
+      />
+      <SubmittedResumeModal application={viewResume} studentName={viewResume ? `${viewResume.student.name} (${viewResume.student.roll})` : ''} onClose={() => setViewResume(null)} />
+      <ComposeEmailModal
+        open={Boolean(emailTo)}
+        onClose={() => setEmailTo(null)}
+        companyId={drive.companyId}
+        driveId={drive.id}
+        initialKind="CUSTOM"
+        preselect={emailTo || []}
       />
     </>
   );

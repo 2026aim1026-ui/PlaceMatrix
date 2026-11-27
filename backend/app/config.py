@@ -64,18 +64,44 @@ class Settings:
         self.frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
         # Optional Google Sign-In (OAuth2 / OpenID Connect ID tokens).
         self.google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "").strip()
-        # Optional SMTP relay for invitation emails. Without it, activation links are shown to CCPC.
+        # SMTP (outgoing email). Credentials only ever come from the environment / backend/.env.
+        # SMTP_USER / SMTP_FROM are accepted as older names for SMTP_USERNAME / SMTP_FROM_EMAIL.
         self.smtp_host: str = os.getenv("SMTP_HOST", "").strip()
-        self.smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user: str = os.getenv("SMTP_USER", "").strip()
-        self.smtp_password: str = os.getenv("SMTP_PASSWORD", "")
-        self.smtp_from: str = os.getenv("SMTP_FROM", f"cdpc@{self.allowed_email_domain}")
+        self.smtp_port: int = int(os.getenv("SMTP_PORT", "587") or 587)
+        self.smtp_username: str = (os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER") or "").strip()
+        self.smtp_password: str = os.getenv("SMTP_PASSWORD", "").replace(" ", "")  # Gmail app passwords are shown with spaces
+        self.smtp_from_email: str = (os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_FROM") or self.smtp_username
+                                     or f"cdpc@{self.allowed_email_domain}").strip()
+        self.smtp_from_name: str = os.getenv("SMTP_FROM_NAME", "CDPC IIT Ropar — PlaceMatrix").strip()
+        # starttls (port 587, Gmail/Outlook), ssl (port 465) or none (local test server only).
+        security = os.getenv("SMTP_SECURITY", "").strip().lower()
+        if not security:
+            if _bool("SMTP_USE_SSL", False) or os.getenv("SMTP_SSL", "").lower() in {"1", "true", "yes"}:
+                security = "ssl"
+            elif os.getenv("SMTP_USE_TLS", os.getenv("SMTP_TLS", "")).lower() in {"0", "false", "no"}:
+                security = "none"
+            else:
+                security = "ssl" if self.smtp_port == 465 else "starttls"
+        if security not in {"starttls", "ssl", "none"}:
+            raise ValueError("SMTP_SECURITY must be starttls, ssl or none")
+        self.smtp_security: str = security
+        self.smtp_timeout: int = int(os.getenv("SMTP_TIMEOUT", "20"))
+        self.email_max_recipients: int = int(os.getenv("EMAIL_MAX_RECIPIENTS", "200"))
         self.invite_ttl_days: int = int(os.getenv("INVITE_TTL_DAYS", "14"))
+        # Resume library
+        self.max_resumes: int = int(os.getenv("MAX_RESUMES", "10"))
+        # Schema & live sync
+        self.auto_migrate: bool = _bool("AUTO_MIGRATE", True)
+        self.realtime_sync: bool = _bool("REALTIME_SYNC", True)
         # Graduation batch assigned to newly onboarded students (editable in their Profile Audit).
         self.default_grad_year: int = int(os.getenv("DEFAULT_GRAD_YEAR", "2026"))
 
     def email_allowed(self, email: str) -> bool:
         return email.strip().lower().endswith("@" + self.allowed_email_domain)
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_from_email)
 
 
 @lru_cache

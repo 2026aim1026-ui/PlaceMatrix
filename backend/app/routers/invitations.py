@@ -4,9 +4,7 @@ accept / decline as the invited student."""
 from __future__ import annotations
 
 import logging
-import smtplib
 from datetime import timedelta
-from email.message import EmailMessage
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -19,6 +17,8 @@ from ..database import get_db
 from ..models import Invitation, Student, User
 from ..rules import BRANCH_CODES, ROLL_BRANCH, ROLL_REGEX, utcnow
 from ..security import new_invite_token, short_id
+from ..emailer import OutgoingEmail
+from .email import send_and_log
 from ..services import Actor, bad, forbidden, get_actor, log, not_found, notify
 
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
@@ -69,28 +69,14 @@ def import_fee_paid(body: ImportIn, actor: Actor = Depends(get_actor), db: Sessi
     return {"added": added, "errors": errors}
 
 
-def _send_email(inv: Invitation, link: str) -> bool:
-    if not settings.smtp_host:
-        return False
-    msg = EmailMessage()
-    msg["Subject"] = "PlaceMatrix — Placement Season invitation from CDPC, IIT Ropar"
-    msg["From"] = settings.smtp_from
-    msg["To"] = inv.email
-    msg.set_content(
-        f"Dear {inv.name},\n\nYou have been invited to the IIT Ropar placement season on PlaceMatrix.\n"
-        f"Activate your account and set a password here (valid for {settings.invite_ttl_days} days):\n\n{link}\n\n"
-        "After activation, accept the invitation, fill your Profile Audit and upload your documents.\n\n— CDPC, IIT Ropar"
+def _onboarding_email(inv: Invitation, link: str) -> OutgoingEmail:
+    return OutgoingEmail(
+        to_email=inv.email, to_name=inv.name,
+        subject="PlaceMatrix — Placement Season invitation from CDPC, IIT Ropar",
+        body=(f"Dear {inv.name},\n\nYou have been invited to the IIT Ropar placement season on PlaceMatrix.\n"
+              f"Activate your account and set a password here (valid for {settings.invite_ttl_days} days):\n\n{link}\n\n"
+              "After activation, accept the invitation, fill your Profile Audit and upload your documents.\n\n— CDPC, IIT Ropar"),
     )
-    try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
-            smtp.starttls()
-            if settings.smtp_user:
-                smtp.login(settings.smtp_user, settings.smtp_password)
-            smtp.send_message(msg)
-        return True
-    except Exception as exc:  # never block the invitation on email delivery
-        logger.warning("Invitation email to %s failed: %s", inv.email, exc)
-        return False
 
 
 def _issue_invite(db: Session, inv: Invitation) -> None:
@@ -122,12 +108,16 @@ def send_invitations(body: SendIn, actor: Actor = Depends(get_actor), db: Sessio
     if not sent:
         raise bad("No invitable students selected.")
     db.flush()
-    emailed = sum(_send_email(inv, S.invite_link(inv)) for inv in sent)
+    emailed = failed = 0
+    if settings.smtp_configured:  # without SMTP, CCPC copies the activation links from the UI
+        results = send_and_log(db, actor, "ONBOARDING", [(_onboarding_email(i, S.invite_link(i)), None) for i in sent])
+        emailed = sum(1 for r in results if r["status"] == "SENT")
+        failed = len(results) - emailed
     entries = [i.entry_no for i in sent]
     log(db, actor, "Invitation", "INVITATION_SENT",
         f"Invitation sent to {entries[0]}." if len(sent) == 1 else f"Bulk onboarding invitation sent to {len(sent)} fee-paid student(s).")
     db.commit()
-    return {"sent": entries, "emailed": emailed, "links": [{"id": i.invitation_id, "entryNo": i.entry_no, "link": S.invite_link(i)} for i in sent]}
+    return {"sent": entries, "emailed": emailed, "emailFailed": failed, "links": [{"id": i.invitation_id, "entryNo": i.entry_no, "link": S.invite_link(i)} for i in sent]}
 
 
 @router.post("/{invitation_id}/link")

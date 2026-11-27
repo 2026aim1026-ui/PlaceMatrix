@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Lock, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
@@ -9,13 +8,10 @@ import { criteriaChips } from '../../utils/eligibility';
 import { STAGE_LABELS } from '../../constants';
 
 /**
- * Drive card for the student feed. Eligible + open drives allow a 1-click apply with the chosen resume;
- * ineligible drives show the first failed rule and a "Why?" link.
+ * Drive card for the student feed. Eligible + open drives open the apply dialog, where the student chooses
+ * which resume to submit; ineligible drives show the first failed rule and a "Why?" link.
  */
-export default function OpportunityCard({ drive, resumes, defaultResumeId, onApply, onWhy, now }) {
-  const approved = resumes.filter((r) => r.status === 'APPROVED');
-  const [resumeId, setResumeId] = useState(defaultResumeId && approved.some((r) => r.id === defaultResumeId) ? defaultResumeId : approved[0]?.id || '');
-  const [busy, setBusy] = useState(false);
+export default function OpportunityCard({ drive, onApply, onWhy, now }) {
   const { eligibility: elig, application: app } = drive;
   const closed = new Date(drive.deadline).getTime() <= now || drive.status === 'CLOSED';
   const frozen = drive.status === 'FROZEN';
@@ -25,12 +21,6 @@ export default function OpportunityCard({ drive, resumes, defaultResumeId, onApp
   else if (frozen) badge = <StatusBadge status="FROZEN" />;
   else if (closed) badge = <StatusBadge status="CLOSED" />;
   else badge = <StatusBadge status={elig.eligible ? 'ELIGIBLE' : 'INELIGIBLE'} icon={elig.eligible} />;
-
-  const apply = () => {
-    setBusy(true);
-    const ok = onApply(drive.id, resumeId);
-    if (!ok) setBusy(false);
-  };
 
   return (
     <article className="card flex flex-col p-4 transition hover:border-brand/30 hover:shadow-md">
@@ -68,18 +58,9 @@ export default function OpportunityCard({ drive, resumes, defaultResumeId, onApp
             <CheckCircle2 className="h-4 w-4 text-success" /> Applied ✓ — view pipeline
           </Link>
         ) : elig.eligible && !closed && !frozen ? (
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-[12px] text-ink-muted">
-              <span className="shrink-0">Resume:</span>
-              <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className="input h-8 text-xs" aria-label={`Resume for ${drive.company.name} ${drive.role}`}>
-                {approved.length === 0 && <option value="">No verified resume</option>}
-                {approved.map((r) => <option key={r.id} value={r.id}>{r.label || r.fileName}{r.id === defaultResumeId ? ' (default)' : ''}</option>)}
-              </select>
-            </label>
-            <button type="button" className="btn btn-primary w-full" onClick={apply} disabled={!resumeId || busy}>
-              <Zap className="h-4 w-4" /> {busy ? 'Applying…' : '1-Click Apply Now'}
-            </button>
-          </div>
+          <button type="button" className="btn btn-primary w-full" onClick={() => onApply(drive)}>
+            <Zap className="h-4 w-4" /> Apply — choose resume
+          </button>
         ) : (
           <div className="flex gap-2">
             <button type="button" className="btn btn-secondary flex-1" disabled>

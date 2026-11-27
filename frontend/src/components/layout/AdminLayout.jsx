@@ -23,6 +23,8 @@ export default function AdminLayout() {
     notInvited: db.invitations.filter((i) => i.status === 'NOT_INVITED').length,
     openTickets: db.tickets.filter((t) => t.status === 'OPEN').length,
     spocCompanies: db.companies.filter((c) => c.spocId === me.admin?.id && c.active).length,
+    unassignedRecruitments: db.companies.filter((c) => c.status === 'APPROVED' && (!c.spocId || !c.verifierId)).length,
+    verifierRecruitments: db.companies.filter((c) => c.verifierId === me.admin?.id).length,
   }), [db, studentById, me.admin]);
 
   const linked = me.admin?.linkedStudentId ? studentById.get(me.admin.linkedStudentId) : null;
