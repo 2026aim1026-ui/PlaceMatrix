@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
@@ -50,6 +51,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition", "X-Row-Count", "X-File-Count"],
 )
+
+# Compress responses over 1 KB when the browser accepts gzip (every modern browser does). The role-scoped
+# /api/state snapshot shrinks about 7x (e.g. 70 KB -> 9 KB), which matters most on mobile and campus Wi-Fi.
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)
 
 
 @app.middleware("http")

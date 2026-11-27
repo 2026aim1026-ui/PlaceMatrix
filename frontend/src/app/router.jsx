@@ -1,4 +1,6 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import LoadingState from '../components/common/LoadingState';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import RoleGuard from '../components/common/RoleGuard';
 import StudentLayout from '../components/layout/StudentLayout';
@@ -10,33 +12,43 @@ import LoginPage from '../pages/auth/LoginPage';
 import ActivatePage from '../pages/auth/ActivatePage';
 import NotFound from '../pages/NotFound';
 
-import StudentDashboard from '../pages/student/StudentDashboard';
-import Opportunities from '../pages/student/Opportunities';
-import OpportunityDetail from '../pages/student/OpportunityDetail';
-import ProfileAudit from '../pages/student/ProfileAudit';
-import Documents from '../pages/student/Documents';
-import MyApplications from '../pages/student/MyApplications';
-import ApplicationConfirmation from '../pages/student/ApplicationConfirmation';
-import HelpPolicy from '../pages/student/HelpPolicy';
-import Invitation from '../pages/student/Invitation';
+const StudentDashboard = lazy(() => import('../pages/student/StudentDashboard'));
+const Opportunities = lazy(() => import('../pages/student/Opportunities'));
+const OpportunityDetail = lazy(() => import('../pages/student/OpportunityDetail'));
+const ProfileAudit = lazy(() => import('../pages/student/ProfileAudit'));
+const Documents = lazy(() => import('../pages/student/Documents'));
+const MyApplications = lazy(() => import('../pages/student/MyApplications'));
+const ApplicationConfirmation = lazy(() => import('../pages/student/ApplicationConfirmation'));
+const HelpPolicy = lazy(() => import('../pages/student/HelpPolicy'));
+const Invitation = lazy(() => import('../pages/student/Invitation'));
 
-import GovernanceDesk from '../pages/admin/GovernanceDesk';
-import StudentDirectory from '../pages/admin/StudentDirectory';
-import Companies from '../pages/admin/Companies';
-import Drives from '../pages/admin/Drives';
-import VerificationQueue from '../pages/admin/VerificationQueue';
-import DocumentReview from '../pages/admin/DocumentReview';
-import CorrectionRequests from '../pages/admin/CorrectionRequests';
-import SpocCompanies from '../pages/admin/SpocCompanies';
-import ApplicantRoster from '../pages/admin/ApplicantRoster';
-import BulkShortlist from '../pages/admin/BulkShortlist';
-import Invitations from '../pages/admin/Invitations';
-import AuditTrail from '../pages/admin/AuditTrail';
-import Analytics from '../pages/admin/Analytics';
-import Users from '../pages/admin/Users';
-import Recruitments from '../pages/admin/Recruitments';
-import EmailCenter from '../pages/admin/EmailCenter';
-import AssignedRecruitments from '../pages/admin/AssignedRecruitments';
+const GovernanceDesk = lazy(() => import('../pages/admin/GovernanceDesk'));
+const StudentDirectory = lazy(() => import('../pages/admin/StudentDirectory'));
+const Companies = lazy(() => import('../pages/admin/Companies'));
+const Drives = lazy(() => import('../pages/admin/Drives'));
+const VerificationQueue = lazy(() => import('../pages/admin/VerificationQueue'));
+const DocumentReview = lazy(() => import('../pages/admin/DocumentReview'));
+const CorrectionRequests = lazy(() => import('../pages/admin/CorrectionRequests'));
+const SpocCompanies = lazy(() => import('../pages/admin/SpocCompanies'));
+const ApplicantRoster = lazy(() => import('../pages/admin/ApplicantRoster'));
+const BulkShortlist = lazy(() => import('../pages/admin/BulkShortlist'));
+const Invitations = lazy(() => import('../pages/admin/Invitations'));
+const AuditTrail = lazy(() => import('../pages/admin/AuditTrail'));
+const Analytics = lazy(() => import('../pages/admin/Analytics'));
+const Users = lazy(() => import('../pages/admin/Users'));
+const Recruitments = lazy(() => import('../pages/admin/Recruitments'));
+const EmailCenter = lazy(() => import('../pages/admin/EmailCenter'));
+const AssignedRecruitments = lazy(() => import('../pages/admin/AssignedRecruitments'));
+
+// Each page is a separate chunk downloaded on first visit, so a student never downloads the admin pages or
+// the charts library. Login/activation stay in the main bundle because they are the first screens anyone sees.
+function page(Component) {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <Component />
+    </Suspense>
+  );
+}
 
 function HomeRedirect() {
   const { session } = useAuth();
@@ -58,15 +70,15 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute portal="student" />}>
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="invitation" element={<Invitation />} />
-          <Route path="dashboard" element={<StudentDashboard />} />
-          <Route path="opportunities" element={<Opportunities />} />
-          <Route path="opportunities/:id" element={<OpportunityDetail />} />
-          <Route path="profile" element={<ProfileAudit />} />
-          <Route path="documents" element={<Documents />} />
-          <Route path="applications" element={<MyApplications />} />
-          <Route path="applications/:id/confirmation" element={<ApplicationConfirmation />} />
-          <Route path="help" element={<HelpPolicy />} />
+          <Route path="invitation" element={page(Invitation)} />
+          <Route path="dashboard" element={page(StudentDashboard)} />
+          <Route path="opportunities" element={page(Opportunities)} />
+          <Route path="opportunities/:id" element={page(OpportunityDetail)} />
+          <Route path="profile" element={page(ProfileAudit)} />
+          <Route path="documents" element={page(Documents)} />
+          <Route path="applications" element={page(MyApplications)} />
+          <Route path="applications/:id/confirmation" element={page(ApplicationConfirmation)} />
+          <Route path="help" element={page(HelpPolicy)} />
           <Route path="*" element={<NotFound inline />} />
         </Route>
       </Route>
@@ -75,49 +87,49 @@ export default function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminIndex />} />
           <Route element={<RoleGuard permission="admin.dashboard" />}>
-            <Route path="dashboard" element={<GovernanceDesk />} />
+            <Route path="dashboard" element={page(GovernanceDesk)} />
           </Route>
           <Route element={<RoleGuard permission="admin.students" />}>
-            <Route path="students" element={<StudentDirectory />} />
+            <Route path="students" element={page(StudentDirectory)} />
           </Route>
           <Route element={<RoleGuard permission="admin.companies" />}>
-            <Route path="companies" element={<Companies />} />
+            <Route path="companies" element={page(Companies)} />
           </Route>
           <Route element={<RoleGuard permission="admin.drives" />}>
-            <Route path="drives" element={<Drives />} />
+            <Route path="drives" element={page(Drives)} />
           </Route>
           <Route element={<RoleGuard permission="admin.verification" />}>
-            <Route path="verification-queue" element={<VerificationQueue />} />
-            <Route path="document-review/:id" element={<DocumentReview />} />
+            <Route path="verification-queue" element={page(VerificationQueue)} />
+            <Route path="document-review/:id" element={page(DocumentReview)} />
           </Route>
           <Route element={<RoleGuard permission="admin.corrections" />}>
-            <Route path="correction-requests" element={<CorrectionRequests />} />
+            <Route path="correction-requests" element={page(CorrectionRequests)} />
           </Route>
           <Route element={<RoleGuard permission="admin.spoc" />}>
-            <Route path="spoc/companies" element={<SpocCompanies />} />
-            <Route path="spoc/roster" element={<ApplicantRoster />} />
-            <Route path="spoc/bulk-shortlist" element={<BulkShortlist />} />
+            <Route path="spoc/companies" element={page(SpocCompanies)} />
+            <Route path="spoc/roster" element={page(ApplicantRoster)} />
+            <Route path="spoc/bulk-shortlist" element={page(BulkShortlist)} />
           </Route>
           <Route element={<RoleGuard permission="admin.invitations" />}>
-            <Route path="invitations" element={<Invitations />} />
+            <Route path="invitations" element={page(Invitations)} />
           </Route>
           <Route element={<RoleGuard permission="admin.audit" />}>
-            <Route path="audit-trail" element={<AuditTrail />} />
+            <Route path="audit-trail" element={page(AuditTrail)} />
           </Route>
           <Route element={<RoleGuard permission="admin.analytics" />}>
-            <Route path="analytics" element={<Analytics />} />
+            <Route path="analytics" element={page(Analytics)} />
           </Route>
           <Route element={<RoleGuard permission="admin.users" />}>
-            <Route path="users" element={<Users />} />
+            <Route path="users" element={page(Users)} />
           </Route>
           <Route element={<RoleGuard permission="admin.recruitments" />}>
-            <Route path="recruitments" element={<Recruitments />} />
+            <Route path="recruitments" element={page(Recruitments)} />
           </Route>
           <Route element={<RoleGuard permission="admin.email" />}>
-            <Route path="emails" element={<EmailCenter />} />
+            <Route path="emails" element={page(EmailCenter)} />
           </Route>
           <Route element={<RoleGuard permission="admin.assigned" />}>
-            <Route path="assigned-recruitments" element={<AssignedRecruitments />} />
+            <Route path="assigned-recruitments" element={page(AssignedRecruitments)} />
           </Route>
           <Route path="*" element={<NotFound inline />} />
         </Route>
