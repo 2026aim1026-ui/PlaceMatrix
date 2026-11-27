@@ -4,7 +4,7 @@
 Exercises every module through the real HTTP API (and optionally the database) and prints a
 PASS/FAIL line per check. Uses only the Python standard library.
 
-    python scripts/smoke_test.py                       # API at http://localhost:8000
+    python scripts/smoke_test.py                       # API at http://127.0.0.1:8000
     python scripts/smoke_test.py --api http://host:8000
     python scripts/smoke_test.py --db-check            # also prove audit_logs is append-only (needs psycopg)
 
@@ -23,7 +23,7 @@ import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 
-API = "http://localhost:8000"
+API = "http://127.0.0.1:8000"
 DOMAIN = "iitrpr.ac.in"
 PW = "demo123"
 RESULTS: list[tuple[str, bool, str]] = []

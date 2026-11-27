@@ -24,6 +24,7 @@ import asyncio
 import base64
 import email
 import email.policy
+import sys
 import time
 from pathlib import Path
 
@@ -102,11 +103,15 @@ class Session:
         self.out.mkdir(parents=True, exist_ok=True)
         name = f"{time.strftime('%Y%m%d-%H%M%S')}-{abs(hash(data)) % 10**6:06d}.eml"
         (self.out / name).write_bytes(data)
-        print(f"[mail] to={', '.join(self.rcpts)} subject={msg['Subject']!r} → {self.out / name}", flush=True)
+        print(f"[mail] to={', '.join(self.rcpts)} subject={msg['Subject']!r} -> {self.out / name}", flush=True)
 
 
 async def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    # Windows consoles (cp1252) cannot print every character in a subject; never let logging break delivery.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+    p =argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=1025)
     p.add_argument("--out", default="sent_emails", help="folder for received .eml files")
