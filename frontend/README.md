@@ -23,4 +23,4 @@ Requires Node.js 18+ and the backend running on port 8000 (change with `VITE_PRO
 | `src/context/DataContext.jsx` | Loads the snapshot for the signed-in user before rendering routes |
 | `src/utils/profileRules.js` | Claimed-vs-proof comparison and submission checklist for instant UI feedback (the server re-checks) |
 
-New pages: `/activate` (invitation activation), `/admin/analytics` and `/admin/users` (CCPC).
+New pages: `/activate` (invitation activation), `/admin/analytics` and `/admin/users` (CDPC).

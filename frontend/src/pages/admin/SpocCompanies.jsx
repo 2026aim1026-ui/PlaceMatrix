@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Building2, Briefcase, Users, Clock, Plus, Zap, Pencil, Mail, AlertTriangle } from 'lucide-react';
+import { Building2, Briefcase, Users, Clock, Plus, Zap, Pencil, Mail, AlertTriangle, Send, ShieldCheck } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import StatusBadge from '../../components/common/StatusBadge';
 import EmptyState from '../../components/common/EmptyState';
 import Countdown from '../../components/common/Countdown';
 import DriveFormModal from '../../components/admin/DriveFormModal';
+import ComposeEmailModal from '../../components/email/ComposeEmailModal';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -22,6 +23,7 @@ export default function SpocCompanies() {
   const toast = useToast();
   const navigate = useNavigate();
   const [modal, setModal] = useState(null); // { company, drive }
+  const [compose, setCompose] = useState(null); // { companyId, driveId, kind, preselect }
 
   const isSpoc = me.role === ROLES.SPOC;
   const companies = useMemo(() => db.companies
@@ -52,7 +54,7 @@ export default function SpocCompanies() {
     <>
       <PageHeader
         title="Assigned Companies"
-        description="CCPC assigns you a company after its emailed form is approved. You create the JAF and its deadline, then coordinate applicants."
+        description="CDPC assigns you a company after its emailed form is approved. You create the JAF and its deadline, then coordinate applicants."
       />
 
       {linked && (
@@ -71,7 +73,7 @@ export default function SpocCompanies() {
 
       {companies.length === 0 ? (
         <div className="card">
-          <EmptyState icon={Building2} title="No companies assigned yet" description="CCPC will assign companies to you once their recruiter forms are approved." />
+          <EmptyState icon={Building2} title="No companies assigned yet" description="CDPC will assign companies to you once their recruiter forms are approved." />
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -85,8 +87,9 @@ export default function SpocCompanies() {
                   <div className="min-w-0">
                     <p className="eyebrow !text-brand">{c.name}</p>
                     <p className="mt-1 flex items-center gap-1 truncate text-xs text-ink-muted"><Mail className="h-3 w-3 shrink-0" /> Recruiter: {c.recruiterEmail}</p>
-                    <p className="text-xs text-ink-muted">Approved by CCPC on {formatDate(c.approvedAt)}</p>
+                    <p className="text-xs text-ink-muted">Approved by CDPC on {formatDate(c.approvedAt)}</p>
                     {!isSpoc && <p className="text-xs text-ink-muted">SPOC: <strong className="text-ink">{spoc?.name || 'Unassigned'}</strong></p>}
+                    <p className="flex items-center gap-1 text-xs text-ink-muted"><ShieldCheck className="h-3 w-3 shrink-0" /> Verifier: <strong className="text-ink">{adminById.get(c.verifierId)?.name || 'Unassigned'}</strong></p>
                   </div>
                   <button
                     type="button"
@@ -99,7 +102,7 @@ export default function SpocCompanies() {
                 </div>
 
                 {!c.active && (
-                  <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs text-ink-soft">This company is inactive. CCPC must reactivate it before new JAFs can be published.</p>
+                  <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs text-ink-soft">This company is inactive. CDPC must reactivate it before new JAFs can be published.</p>
                 )}
 
                 {cDrives.length > 0 && (
@@ -120,6 +123,8 @@ export default function SpocCompanies() {
                           <div className="flex shrink-0 gap-1">
                             <Link to={`/admin/spoc/roster?drive=${d.id}`} className="btn btn-secondary btn-xs">Roster</Link>
                             <Link to={`/admin/spoc/bulk-shortlist?drive=${d.id}`} className="btn btn-secondary btn-xs">Parser</Link>
+                            {d.status === 'OPEN' && <button type="button" className="btn btn-soft btn-xs" onClick={() => setCompose({ companyId: c.id, driveId: d.id, kind: 'INVITATION', preselect: [] })}><Send className="h-3.5 w-3.5" /> Invite</button>}
+                            {count > 0 && <button type="button" className="btn btn-ghost btn-xs" onClick={() => setCompose({ companyId: c.id, driveId: d.id, kind: 'CUSTOM', preselect: [...new Set(db.applications.filter((a) => a.driveId === d.id && a.stage !== 'WITHDRAWN').map((a) => a.studentId))] })}><Mail className="h-3.5 w-3.5" /> Email</button>}
                             <button type="button" className="btn btn-ghost btn-xs" onClick={() => setModal({ company: c, drive: d })} aria-label={`Edit ${d.role}`}><Pencil className="h-3.5 w-3.5" /> Edit</button>
                           </div>
                         </li>
@@ -147,6 +152,15 @@ export default function SpocCompanies() {
         companyId={modal?.company.id}
         lockCompany
         companies={modal ? [modal.company] : []}
+      />
+
+      <ComposeEmailModal
+        open={Boolean(compose)}
+        onClose={() => setCompose(null)}
+        companyId={compose?.companyId}
+        driveId={compose?.driveId}
+        initialKind={compose?.kind || 'INVITATION'}
+        preselect={compose?.preselect || []}
       />
     </>
   );

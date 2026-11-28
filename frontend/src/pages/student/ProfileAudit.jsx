@@ -309,7 +309,7 @@ function TicketModal({ mode, onClose, student }) {
     const res = await repo.createTicket(me.actor, student.id, {
       type: mode, field: v.field, fieldLabel: label, currentValue: current, requestedValue: v.requestedValue.trim(), justification: v.justification,
     });
-    if (await toast.result(res, 'Ticket raised', 'CCPC will review your request. You can track it under Last ticket status.')) onClose();
+    if (await toast.result(res, 'Ticket raised', 'CDPC will review your request. You can track it under Last ticket status.')) onClose();
   };
 
   return (
@@ -317,7 +317,7 @@ function TicketModal({ mode, onClose, student }) {
       open={Boolean(mode)}
       onClose={onClose}
       title={mode === 'UNFREEZE' ? 'Request profile unfreeze' : 'Request a correction'}
-      description="Verified fields cannot be edited directly. CCPC reviews the request; if approved your profile unlocks for correction and re-verification."
+      description="Verified fields cannot be edited directly. CDPC reviews the request; if approved your profile unlocks for correction and re-verification."
       footer={(
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

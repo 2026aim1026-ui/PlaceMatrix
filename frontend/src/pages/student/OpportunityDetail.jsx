@@ -7,6 +7,7 @@ import ErrorState from '../../components/common/ErrorState';
 import Countdown from '../../components/common/Countdown';
 import EligibilityChecklist from '../../components/student/EligibilityChecklist';
 import { useApply } from '../../components/student/useApply';
+import ApplyDialog from '../../components/student/ApplyDialog';
 import { useStudentData } from '../../hooks/useStudentData';
 import { useNow } from '../../hooks/useNow';
 import { canApply } from '../../utils/eligibility';
@@ -22,8 +23,7 @@ export default function OpportunityDetail() {
   const apply = useApply();
   const now = useNow(30000);
   const drive = drives.find((d) => d.id === id);
-  const approved = resumes.filter((r) => r.status === 'APPROVED');
-  const [resumeId, setResumeId] = useState(student.defaultResumeId || approved[0]?.id || '');
+  const [applying, setApplying] = useState(false);
 
   if (!drive) {
     return <ErrorState title="Opportunity not found" description="This drive does not exist or is not visible to students." backTo="/student/opportunities" backLabel="Back to Opportunities" />;
@@ -91,13 +91,10 @@ export default function OpportunityDetail() {
               </>
             ) : check.ok ? (
               <>
-                <label htmlFor="detail-resume" className="label">Resume to submit</label>
-                <select id="detail-resume" className="input" value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
-                  {approved.map((r) => <option key={r.id} value={r.id}>{r.label || r.fileName}{r.id === student.defaultResumeId ? ' (default)' : ''}</option>)}
-                </select>
-                <p className="mt-1 text-[11px] text-ink-muted">Only verified resumes can be attached.</p>
-                <button type="button" className="btn btn-primary mt-3 w-full" disabled={!resumeId} onClick={() => apply(drive.id, resumeId)}>
-                  <Zap className="h-4 w-4" /> 1-Click Apply
+                <p className="text-sm font-semibold text-ink">You are eligible for this drive</p>
+                <p className="mt-1 text-[12px] text-ink-muted">Next, choose which of your {resumes.length} resume(s) to submit. Only verified resumes can be attached.</p>
+                <button type="button" className="btn btn-primary mt-3 w-full" onClick={() => setApplying(true)}>
+                  <Zap className="h-4 w-4" /> Apply — choose resume
                 </button>
               </>
             ) : (
@@ -112,6 +109,14 @@ export default function OpportunityDetail() {
           </section>
         </aside>
       </div>
+      <ApplyDialog
+        drive={applying ? drive : null}
+        resumes={resumes}
+        defaultResumeId={student.defaultResumeId}
+        student={student}
+        onClose={() => setApplying(false)}
+        onSubmit={apply}
+      />
     </>
   );
 }

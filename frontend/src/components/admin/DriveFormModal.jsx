@@ -10,7 +10,7 @@ import { toInputDateTime, fromInputDateTime, DAY } from '../../utils/dateUtils';
 import { numberInRange } from '../../utils/validation';
 
 /**
- * Create / edit a placement drive (a JAF). Used by CCPC on Placement Drives and by SPOCs on Assigned Companies.
+ * Create / edit a placement drive (a JAF). Used by CDPC on Placement Drives and by SPOCs on Assigned Companies.
  * Props: open, onClose, drive (existing record to edit) | null, companyId (preset), lockCompany, companies (choices)
  */
 export default function DriveFormModal({ open, onClose, drive = null, companyId, lockCompany = false, companies }) {
@@ -79,7 +79,7 @@ export default function DriveFormModal({ open, onClose, drive = null, companyId,
       onClose={onClose}
       size="lg"
       title={drive ? `Edit drive · ${company?.name || ''}` : `Create JAF${company ? ` · ${company.name}` : ''}`}
-      description="Fill this from the recruiter's approved form. The deadline you set is the one students, CCPC and the calendar all see."
+      description="Fill this from the recruiter's approved form. The deadline you set is the one students, CDPC and the calendar all see."
       footer={(
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

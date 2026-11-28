@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Eye, ShieldCheck, Unlock } from 'lucide-react';
+import { FileText, Eye, ShieldCheck, Unlock, Mail } from 'lucide-react';
 import Modal from '../common/Modal';
 import StatusBadge from '../common/StatusBadge';
 import ConfirmationDialog from '../common/ConfirmationDialog';
 import DocumentPreview from '../documents/DocumentPreview';
+import ComposeEmailModal from '../email/ComposeEmailModal';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -20,6 +21,7 @@ export default function StudentDetailModal({ studentId, onClose }) {
   const toast = useToast();
   const [preview, setPreview] = useState(null);
   const [revision, setRevision] = useState(false);
+  const [emailing, setEmailing] = useState(false);
   const s = studentById.get(studentId);
   if (!s) return null;
 
@@ -30,7 +32,7 @@ export default function StudentDetailModal({ studentId, onClose }) {
   return (
     <>
       <Modal
-        open={!preview}
+        open={!preview && !emailing}
         onClose={onClose}
         size="xl"
         title={`${s.name} · ${s.roll}`}
@@ -43,6 +45,7 @@ export default function StudentDetailModal({ studentId, onClose }) {
             {canVerify && s.verification === 'PENDING' && (
               <Link to={`/admin/document-review/${s.id}`} className="btn btn-primary" onClick={onClose}><ShieldCheck className="h-4 w-4" /> Open verification workspace</Link>
             )}
+            {me.role === 'CDPC' && <button type="button" className="btn btn-secondary" onClick={() => setEmailing(true)}><Mail className="h-4 w-4" /> Email student</button>}
             <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
           </>
         )}
@@ -99,6 +102,8 @@ export default function StudentDetailModal({ studentId, onClose }) {
       <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title={preview?.fileName} size="lg">
         {preview && <div className="-mx-5 -my-4"><DocumentPreview doc={preview} student={s} height="h-[65vh]" /></div>}
       </Modal>
+
+      <ComposeEmailModal open={emailing} onClose={() => setEmailing(false)} initialKind="CUSTOM" preselect={[s.id]} title={`Email ${s.name}`} />
 
       <ConfirmationDialog
         open={revision}

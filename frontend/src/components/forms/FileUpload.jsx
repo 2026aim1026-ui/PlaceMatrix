@@ -4,13 +4,13 @@ import { validateFile } from '../../utils/validation';
 import { formatBytes } from '../../utils/format';
 
 /** Drag-and-drop / click file picker with validation. Calls onSelect(file) or shows an error. */
-export default function FileUpload({ file, onSelect, onClear, accept = '.pdf,.png,.jpg,.jpeg', hint = 'PDF, PNG or JPG · max 5 MB' }) {
+export default function FileUpload({ file, onSelect, onClear, pdfOnly = false, accept = pdfOnly ? '.pdf,application/pdf' : '.pdf,.png,.jpg,.jpeg', hint = pdfOnly ? 'PDF only · max 5 MB' : 'PDF, PNG or JPG · max 5 MB' }) {
   const inputRef = useRef(null);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState('');
 
   const handle = (f) => {
-    const err = validateFile(f);
+    const err = validateFile(f, pdfOnly ? { types: ['application/pdf'] } : undefined);
     setError(err || '');
     if (!err) onSelect(f);
   };

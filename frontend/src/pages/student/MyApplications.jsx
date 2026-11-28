@@ -10,6 +10,7 @@ import Modal from '../../components/common/Modal';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import EligibilityBadge from '../../components/common/EligibilityBadge';
 import ApplicationTimeline from '../../components/student/ApplicationTimeline';
+import SubmittedResumeModal from '../../components/documents/SubmittedResumeModal';
 import { useStudentData } from '../../hooks/useStudentData';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useData } from '../../context/DataContext';
@@ -21,19 +22,20 @@ import { STAGE_LABELS, TERMINAL_STAGES } from '../../constants';
 
 export default function MyApplications() {
   const { student, applications } = useStudentData();
-  const { driveById, companyById, docById, repo } = useData();
+  const { driveById, companyById, repo } = useData();
   const me = useCurrentUser();
   const toast = useToast();
   const [q, setQ] = useState('');
   const [stage, setStage] = useState('');
   const [selected, setSelected] = useState(null);
   const [withdraw, setWithdraw] = useState(null);
+  const [viewResume, setViewResume] = useState(null);
 
   const rows = useMemo(() => applications.map((a) => {
     const drive = driveById.get(a.driveId);
     const company = companyById.get(drive?.companyId);
-    return { ...a, drive, company, eligibility: evaluateEligibility(student, drive), resume: docById.get(a.resumeId) };
-  }), [applications, driveById, companyById, docById, student]);
+    return { ...a, drive, company, eligibility: evaluateEligibility(student, drive) };
+  }), [applications, driveById, companyById, student]);
 
   const filtered = rows.filter((r) => {
     if (stage && r.stage !== stage) return false;
@@ -109,7 +111,18 @@ export default function MyApplications() {
             </div>
             <dl className="space-y-2.5 text-sm">
               <div><dt className="eyebrow">Current status</dt><dd className="mt-1"><StatusBadge status={sel.stage} /></dd></div>
-              <div><dt className="eyebrow">Resume submitted</dt><dd className="mono mt-1">{sel.resume?.fileName || '—'}</dd></div>
+              <div>
+                <dt className="eyebrow">Resume submitted</dt>
+                <dd className="mt-1">
+                  {sel.resume ? (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{sel.resume.label}</span>
+                      <span className="mono text-[12px] text-ink-muted">{sel.resume.fileName}{sel.resume.version ? ` · v${sel.resume.version}` : ''}</span>
+                      {sel.resume.available && <button type="button" className="btn btn-ghost btn-xs" onClick={() => setViewResume(sel)}><Eye className="h-3.5 w-3.5" /> View submitted copy</button>}
+                    </span>
+                  ) : '—'}
+                </dd>
+              </div>
               <div><dt className="eyebrow">Eligibility at review</dt><dd className="mt-1"><EligibilityBadge result={sel.eligibility} /></dd></div>
               <div><dt className="eyebrow">Drive deadline</dt><dd className="mt-1">{formatDateTime(sel.drive?.deadline)}</dd></div>
               <div><dt className="eyebrow">Location</dt><dd className="mt-1">{sel.drive?.location}</dd></div>
@@ -118,6 +131,8 @@ export default function MyApplications() {
           </div>
         )}
       </Modal>
+
+      <SubmittedResumeModal application={viewResume} onClose={() => setViewResume(null)} />
 
       <ConfirmationDialog
         open={Boolean(withdraw)}

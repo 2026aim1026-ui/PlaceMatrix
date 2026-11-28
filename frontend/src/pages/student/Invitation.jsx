@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDateTime } from '../../utils/dateUtils';
 
-const STEPS = ['Fee paid', 'CCPC invitation', 'Accept & create profile', 'Faculty verification', 'Apply to drives'];
+const STEPS = ['Fee paid', 'CDPC invitation', 'Accept & create profile', 'Faculty verification', 'Apply to drives'];
 
 export default function Invitation() {
   const me = useCurrentUser();
@@ -29,7 +29,7 @@ export default function Invitation() {
   };
 
   const decline = async () => {
-    await toast.result(repo.declineInvitation(inv.id), 'Invitation declined', 'CCPC has been notified.');
+    await toast.result(repo.declineInvitation(inv.id), 'Invitation declined', 'CDPC has been notified.');
     setConfirmDecline(false);
   };
 
@@ -49,14 +49,14 @@ export default function Invitation() {
       {declined ? (
         <section className="card card-pad text-sm">
           <p className="font-semibold text-ink">You declined the placement invitation.</p>
-          <p className="mt-1 text-ink-muted">If this was a mistake, ask the CCPC office to re-invite you. You can then sign in again.</p>
+          <p className="mt-1 text-ink-muted">If this was a mistake, ask the CDPC office to re-invite you. You can then sign in again.</p>
           <button type="button" className="btn btn-secondary mt-4" onClick={() => { logout(); navigate('/login'); }}>Sign out</button>
         </section>
       ) : (
         <section className="card card-pad flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2 text-sm">
             <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-            <span><strong>CCPC has invited you to Placement Season 2026–27</strong>{inv.updatedAt && <span className="text-ink-muted"> · {formatDateTime(inv.updatedAt)}</span>}<br />
+            <span><strong>CDPC has invited you to Placement Season 2026–27</strong>{inv.updatedAt && <span className="text-ink-muted"> · {formatDateTime(inv.updatedAt)}</span>}<br />
               <span className="text-xs text-ink-muted">Accept to create your PlaceMatrix profile. You can then fill your Profile Audit and upload documents.</span></span>
           </p>
           <div className="flex shrink-0 gap-2">
@@ -85,7 +85,7 @@ export default function Invitation() {
         tone="danger"
         title="Decline placement invitation?"
         confirmLabel="Decline"
-        message="You will not be able to participate in campus placements unless CCPC re-invites you."
+        message="You will not be able to participate in campus placements unless CDPC re-invites you."
       />
     </div>
   );

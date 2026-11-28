@@ -35,7 +35,7 @@ export function useCurrentUser() {
       session,
       role: session.role,
       admin,
-      canVerify: session.role === ROLES.CCPC || Boolean(admin?.canVerify),
+      canVerify: session.role === ROLES.CDPC || Boolean(admin?.canVerify),
       name: admin?.name || ROLE_LABELS[session.role],
       subtitle: admin?.title || ROLE_LABELS[session.role],
       actor: { id: admin?.id, name: admin?.name || ROLE_LABELS[session.role], role: session.role },

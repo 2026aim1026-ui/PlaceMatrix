@@ -8,7 +8,7 @@ import { useToast } from '../../context/ToastContext';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { formatDateTime, toInputDateTime, fromInputDateTime, HOUR, DAY } from '../../utils/dateUtils';
 
-/** CCPC-only deadline extension with quick presets and a mandatory audit reason. */
+/** CDPC-only deadline extension with quick presets and a mandatory audit reason. */
 export default function ExtendDeadlineModal({ drive, onClose }) {
   const { repo, companyById } = useData();
   const me = useCurrentUser();

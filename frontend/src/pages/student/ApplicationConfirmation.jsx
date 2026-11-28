@@ -12,7 +12,7 @@ import { STAGE_LABELS } from '../../constants';
 
 export default function ApplicationConfirmation() {
   const { id } = useParams();
-  const { db, driveById, companyById, docById } = useData();
+  const { db, driveById, companyById } = useData();
   const { student } = useStudentData();
   const app = db.applications.find((a) => a.id === id && a.studentId === student.id);
 
@@ -22,7 +22,7 @@ export default function ApplicationConfirmation() {
 
   const drive = driveById.get(app.driveId);
   const company = companyById.get(drive.companyId);
-  const resume = docById.get(app.resumeId);
+  const resume = app.resume;
   const elig = evaluateEligibility(student, drive);
 
   return (
@@ -43,7 +43,7 @@ export default function ApplicationConfirmation() {
           <div><dt className="eyebrow">CTC / Package</dt><dd className="mt-1 text-lg font-bold">{formatCtc(drive.ctc)}</dd></div>
           <div><dt className="eyebrow">Status</dt><dd className="mt-1 flex items-center gap-2"><StatusBadge status={app.stage} /> <span className="text-xs text-ink-muted">{STAGE_LABELS[app.stage]}</span></dd></div>
           <div><dt className="eyebrow">Application date</dt><dd className="mt-1">{formatFull(app.appliedAt)}</dd></div>
-          <div><dt className="eyebrow">Resume submitted</dt><dd className="mono mt-1 flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-ink-muted" />{resume?.fileName}</dd></div>
+          <div><dt className="eyebrow">Resume submitted</dt><dd className="mono mt-1 flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-ink-muted" />{resume ? `${resume.label} · ${resume.fileName}` : '—'}</dd></div>
           <div className="sm:col-span-2">
             <dt className="eyebrow">Eligibility criteria</dt>
             <dd className="mt-1.5 flex flex-wrap gap-1">{criteriaChips(drive).map((c) => <span key={c} className="chip">{c}</span>)}</dd>

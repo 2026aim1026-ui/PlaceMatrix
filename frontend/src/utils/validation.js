@@ -7,7 +7,7 @@ export const PHONE_PATTERN = /^\+?[\d\s-]{10,15}$/;
 
 export function validateFile(file, { types = ACCEPTED_FILE_TYPES, maxSize = MAX_FILE_SIZE } = {}) {
   if (!file) return 'Please choose a file';
-  if (!types.includes(file.type)) return `Unsupported file type. Allowed: PDF, PNG, JPG`;
+  if (!types.includes(file.type)) return types.length === 1 && types[0] === 'application/pdf' ? 'Only PDF files are accepted here' : 'Unsupported file type. Allowed: PDF, PNG, JPG';
   if (file.size > maxSize) return `File is too large (${formatBytes(file.size)}). Maximum is ${formatBytes(maxSize)}`;
   if (file.size === 0) return 'File is empty';
   return null;

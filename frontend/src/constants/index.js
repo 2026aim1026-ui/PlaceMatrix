@@ -4,17 +4,17 @@ export const ROLES = {
   STUDENT: 'STUDENT',
   VERIFIER: 'VERIFIER',
   SPOC: 'SPOC',
-  CCPC: 'CCPC',
+  CDPC: 'CDPC',
 };
 
 export const ROLE_LABELS = {
   STUDENT: 'Student',
   VERIFIER: 'Faculty Verifier',
   SPOC: 'Student SPOC',
-  CCPC: 'CCPC Administrator',
+  CDPC: 'CDPC Administrator',
 };
 
-export const ADMIN_ROLES = [ROLES.VERIFIER, ROLES.SPOC, ROLES.CCPC];
+export const ADMIN_ROLES = [ROLES.VERIFIER, ROLES.SPOC, ROLES.CDPC];
 
 export const BRANCHES = [
   { code: 'CSE', name: 'Computer Science & Engineering' },

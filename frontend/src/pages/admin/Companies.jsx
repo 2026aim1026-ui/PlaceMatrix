@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, UserCog, Power, Globe, Mail, Phone, Eye, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, UserCog, Power, Globe, Mail, Phone, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import StatusBadge from '../../components/common/StatusBadge';
 import SearchInput from '../../components/common/SearchInput';
@@ -11,6 +11,7 @@ import Modal from '../../components/common/Modal';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import FormField from '../../components/forms/FormField';
 import Countdown from '../../components/common/Countdown';
+import AssignmentModal from '../../components/admin/AssignmentModal';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -41,7 +42,7 @@ export default function Companies() {
   const rows = db.companies.map((c) => {
     const drives = db.drives.filter((d) => d.companyId === c.id);
     const live = drives.filter((d) => d.status !== 'DRAFT').sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
-    return { ...c, drives, live, spoc: adminById.get(c.spocId), state: c.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : c.active ? 'APPROVED' : 'INACTIVE' };
+    return { ...c, drives, live, spoc: adminById.get(c.spocId), verifier: adminById.get(c.verifierId), state: c.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : c.active ? 'APPROVED' : 'INACTIVE' };
   }).filter((c) => {
     if (status && c.state !== status) return false;
     const t = q.trim().toLowerCase();
@@ -57,9 +58,12 @@ export default function Companies() {
     ) },
     { key: 'recruiterEmail', header: 'Recruiter contact', render: (c) => <span className="block max-w-[200px] truncate text-xs text-ink-soft" title={c.recruiterEmail}>{c.recruiterEmail}</span> },
     { key: 'approvedAt', header: 'Approved', sortable: true, render: (c) => <span className="whitespace-nowrap text-xs">{c.approvedAt ? formatDate(c.approvedAt) : '—'}</span> },
-    { key: 'spoc', header: 'Assigned SPOC', sortable: true, sortValue: (c) => c.spoc?.name || '', render: (c) => (c.spoc
-      ? <span className="text-[13px]">{c.spoc.name}</span>
-      : <StatusBadge status="PENDING" label="Unassigned" />) },
+    { key: 'spoc', header: 'SPOC · Verifier', sortable: true, sortValue: (c) => c.spoc?.name || '', render: (c) => (
+      <div className="space-y-0.5 text-[13px]">
+        <p>{c.spoc ? c.spoc.name : <StatusBadge status="PENDING" label="No SPOC" />}</p>
+        <p className="text-[11px] text-ink-muted">Verifier: {c.verifier ? c.verifier.name : <span className="font-medium text-amber-700">unassigned</span>}</p>
+      </div>
+    ) },
     { key: 'jaf', header: 'JAF · Deadline', render: (c) => (c.live.length ? (
       <div className="space-y-1">
         {c.live.slice(0, 2).map((d) => (
@@ -75,7 +79,7 @@ export default function Companies() {
     { key: 'actions', header: '', className: 'text-right', render: (c) => (
       <div className="flex justify-end gap-1">
         {c.status === 'PENDING_APPROVAL' && <button type="button" className="btn btn-success btn-xs" onClick={() => setApprove(c)}><CheckCircle2 className="h-3.5 w-3.5" /> Approve</button>}
-        <button type="button" className="btn btn-secondary btn-xs" onClick={() => setSpocFor(c)}><UserCog className="h-3.5 w-3.5" /> {c.spoc ? 'Change SPOC' : 'Assign SPOC'}</button>
+        <button type="button" className="btn btn-secondary btn-xs" onClick={() => setSpocFor(c)}><UserCog className="h-3.5 w-3.5" /> {c.spoc && c.verifier ? 'Change team' : 'Assign team'}</button>
         <button type="button" className="btn btn-ghost btn-xs" onClick={() => setForm({ company: c })} aria-label={`Edit ${c.name}`}><Pencil className="h-3.5 w-3.5" /></button>
         <button type="button" className={`btn btn-xs ${c.active ? 'btn-danger-soft' : 'btn-soft'}`} onClick={() => setToggle(c)} aria-label={c.active ? `Deactivate ${c.name}` : `Reactivate ${c.name}`} title={c.active ? 'Deactivate' : 'Reactivate'}><Power className="h-3.5 w-3.5" /></button>
       </div>
@@ -100,7 +104,7 @@ export default function Companies() {
 
       <CompanyFormModal open={Boolean(form)} company={form?.company} spocs={spocs} onClose={() => setForm(null)} />
 
-      <SpocModal company={spocFor} spocs={spocs} onClose={() => setSpocFor(null)} />
+      <AssignmentModal company={spocFor} onClose={() => setSpocFor(null)} />
 
       <ConfirmationDialog
         open={Boolean(toggle)}
@@ -135,7 +139,7 @@ export default function Companies() {
               <p className="flex items-center gap-2"><Globe className="h-4 w-4 text-ink-muted" />{detail.website}</p>
               <p className="flex items-center gap-2"><Mail className="h-4 w-4 text-ink-muted" />{detail.recruiterEmail}</p>
               <p className="flex items-center gap-2"><Phone className="h-4 w-4 text-ink-muted" />{detail.phone || '—'}</p>
-              <p className="flex items-center gap-2"><UserCog className="h-4 w-4 text-ink-muted" />Contact: {detail.contactName || '—'} · SPOC: {detail.spoc?.name || 'Unassigned'}</p>
+              <p className="flex items-center gap-2"><UserCog className="h-4 w-4 text-ink-muted" />Contact: {detail.contactName || '—'} · SPOC: {detail.spoc?.name || 'Unassigned'} · Verifier: {detail.verifier?.name || 'Unassigned'}</p>
             </div>
             <div>
               <p className="eyebrow mb-2">Drives ({detail.drives.length})</p>
@@ -211,35 +215,6 @@ function CompanyFormModal({ open, company, spocs, onClose }) {
           <textarea rows={2} className="input" {...register('description', { maxLength: { value: 300, message: 'Keep it under 300 characters' } })} />
         </FormField>
       </form>
-    </Modal>
-  );
-}
-
-function SpocModal({ company, spocs, onClose }) {
-  const { db, repo } = useData();
-  const me = useCurrentUser();
-  const toast = useToast();
-  const [spocId, setSpocId] = useState('');
-  useEffect(() => { setSpocId(company?.spocId || spocs[0]?.id || ''); }, [company, spocs]);
-  if (!company) return null;
-  return (
-    <Modal open onClose={onClose} size="sm" title={`SPOC for ${company.name}`}
-      footer={<><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="btn btn-primary" disabled={!spocId || spocId === company.spocId} onClick={async () => { if (await toast.result(repo.assignSpoc(me.actor, company.id, spocId), 'SPOC assigned')) onClose(); }}>Assign</button></>}
-    >
-      <fieldset className="space-y-2">
-        <legend className="label">Choose a SPOC</legend>
-        {spocs.map((s) => {
-          const load = db.companies.filter((c) => c.spocId === s.id).length;
-          return (
-            <label key={s.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${spocId === s.id ? 'border-brand bg-brand-50/50' : 'border-line'}`}>
-              <input type="radio" name="spoc" value={s.id} checked={spocId === s.id} onChange={() => setSpocId(s.id)} className="text-brand" />
-              <span className="flex-1"><span className="block text-sm font-medium">{s.name}</span><span className="block text-[11px] text-ink-muted">{s.email} · {load} compan{load === 1 ? 'y' : 'ies'}</span></span>
-              {company.spocId === s.id && <StatusBadge status="APPROVED" label="Current" />}
-            </label>
-          );
-        })}
-      </fieldset>
-      <p className="mt-3 text-[11px] text-ink-muted"><Eye className="mr-1 inline h-3 w-3" />The SPOC sees only companies assigned to them.</p>
     </Modal>
   );
 }

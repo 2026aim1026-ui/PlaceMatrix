@@ -46,7 +46,7 @@ function Breakdown({ title, data }) {
   );
 }
 
-/** CCPC analytics: computed by the backend from PostgreSQL (GET /api/analytics/summary). */
+/** CDPC analytics: computed by the backend from PostgreSQL (GET /api/analytics/summary). */
 export default function Analytics() {
   const { repo, db } = useData();
   const [data, setData] = useState(null);
