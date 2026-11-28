@@ -1,4 +1,4 @@
-"""Create the first CCPC admin on an empty (production) database.
+"""Create the first CDPC admin on an empty (production) database.
 
     python -m app.create_admin you@iitrpr.ac.in "Your Name"
 
@@ -29,13 +29,13 @@ def main() -> None:
     with SessionLocal() as db:
         user = db.get(User, email)
         if user is None:
-            user = User(email=email, name=name, role="CCPC", title="CCPC Administrator", can_verify=True, is_active=True)
+            user = User(email=email, name=name, role="CDPC", title="CDPC Administrator", can_verify=True, is_active=True)
             db.add(user)
         else:
-            user.role, user.can_verify, user.is_active = "CCPC", True, True
+            user.role, user.can_verify, user.is_active = "CDPC", True, True
         user.password_hash = hash_password(password)
         db.commit()
-    print(f"CCPC admin ready: {email}")
+    print(f"CDPC admin ready: {email}")
 
 
 if __name__ == "__main__":

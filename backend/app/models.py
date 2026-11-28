@@ -5,7 +5,7 @@ placement_drives, applications, unfreeze_tickets, audit_logs) and adds three sup
 application_events (stage history), invitations (fee-paid onboarding) and notifications.
 
 String primary keys are used for business entities so ids stay readable in URLs
-(e.g. drive "d-01", student roll "2026AIM1028", user email "ccpc@iitrpr.ac.in").
+(e.g. drive "d-01", student roll "2026AIM1028", user email "cdpc@iitrpr.ac.in").
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from .database import Base
 # Allowed values (enforced with CHECK constraints)
 # ---------------------------------------------------------------------------
 
-ROLES = ("STUDENT", "VERIFIER", "SPOC", "CCPC")
+ROLES = ("STUDENT", "VERIFIER", "SPOC", "CDPC")
 VERIFICATION = ("NOT_SUBMITTED", "PENDING", "VERIFIED", "REVISION", "REJECTED")
 PLACEMENT = ("UNPLACED", "PLACED")
 DOC_TYPES = ("GRADE_CARD", "CLASS10", "CLASS12", "ID_PROOF", "RESUME", "PORTFOLIO", "CERTIFICATE", "OTHER")
@@ -50,6 +50,9 @@ STAGES = ("APPLIED", "UNDER_REVIEW", "SHORTLISTED", "ASSESSMENT", "INTERVIEW", "
 TICKET_TYPES = ("CORRECTION", "UNFREEZE")
 TICKET_STATUS = ("OPEN", "APPROVED", "REJECTED")
 INVITE_STATUS = ("NOT_INVITED", "INVITED", "REGISTERED", "DECLINED")
+ASSIGNMENT_ROLES = ("SPOC", "VERIFIER")
+EMAIL_KINDS = ("INVITATION", "CUSTOM", "TEST", "ASSIGNMENT", "ONBOARDING")
+EMAIL_STATUS = ("SENT", "FAILED")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -177,13 +180,15 @@ class Document(Base):
     remarks: Mapped[str] = mapped_column(Text, default="", server_default="")
     claimed_value: Mapped[str | None] = mapped_column(String(64))
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # Resume library: a new version replaces the file in place (applications keep their own snapshot).
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     uploaded_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
     reviewed_by: Mapped[str | None] = mapped_column(String(120))
     reviewed_at: Mapped[datetime | None] = mapped_column(TS)
 
 
 # ---------------------------------------------------------------------------
-# 4. companies — recruiters approved by CCPC, each managed by one SPOC
+# 4. companies — recruiters approved by CDPC, managed by one SPOC and one recruitment verifier
 # ---------------------------------------------------------------------------
 
 
@@ -203,6 +208,10 @@ class Company(Base):
     recruiter_email: Mapped[str | None] = mapped_column(String(254))
     phone: Mapped[str | None] = mapped_column(String(32))
     assigned_spoc: Mapped[str | None] = mapped_column(ForeignKey("users.email", ondelete="SET NULL"), index=True)
+    # Verifier responsible for this recruitment (reviews applicants' submitted resumes). Reassignable any time.
+    assigned_verifier: Mapped[str | None] = mapped_column(
+        ForeignKey("users.email", ondelete="SET NULL", name="fk_companies_assigned_verifier"), index=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="APPROVED", server_default="APPROVED")
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     approved_at: Mapped[datetime | None] = mapped_column(TS)
@@ -268,6 +277,16 @@ class Application(Base):
     stage: Mapped[str] = mapped_column(String(16), default="APPLIED", server_default="APPLIED")
     applied_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+    # Snapshot of the resume exactly as submitted with this application. The file is copied, so later
+    # changes to (or deletion of) the student's resume library never alter what the recruiter receives.
+    resume_label: Mapped[str | None] = mapped_column(String(120))
+    resume_file_name: Mapped[str | None] = mapped_column(String(255))
+    resume_file_type: Mapped[str | None] = mapped_column(String(64))
+    resume_size: Mapped[int | None] = mapped_column(Integer)
+    resume_sha256: Mapped[str | None] = mapped_column(String(64))
+    resume_version: Mapped[int | None] = mapped_column(Integer)
+    resume_snapshot_path: Mapped[str | None] = mapped_column(Text)
+    resume_submitted_at: Mapped[datetime | None] = mapped_column(TS)
 
     events: Mapped[list[ApplicationEvent]] = relationship(
         order_by="ApplicationEvent.event_id", cascade="all, delete-orphan", back_populates="application"
@@ -293,7 +312,7 @@ class ApplicationEvent(Base):
 
 
 # ---------------------------------------------------------------------------
-# 7. unfreeze_tickets — correction / unfreeze requests governed by CCPC
+# 7. unfreeze_tickets — correction / unfreeze requests governed by CDPC
 # ---------------------------------------------------------------------------
 
 
@@ -376,4 +395,56 @@ class Notification(Base):
     message: Mapped[str] = mapped_column(Text)
     link: Mapped[str | None] = mapped_column(String(255))
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+
+
+class AssignmentHistory(Base):
+    """Every SPOC / verifier (re)assignment of a recruitment, kept even after people change."""
+
+    __tablename__ = "assignment_history"
+    __table_args__ = (
+        CheckConstraint(_in("assignment_role", ASSIGNMENT_ROLES), name="ck_assignment_history_role"),
+        Index("ix_assignment_history_company", "company_id", "changed_at"),
+    )
+
+    history_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.company_id", ondelete="CASCADE"))
+    assignment_role: Mapped[str] = mapped_column(String(16))
+    previous_email: Mapped[str | None] = mapped_column(String(254))
+    previous_name: Mapped[str | None] = mapped_column(String(120))
+    new_email: Mapped[str | None] = mapped_column(String(254))
+    new_name: Mapped[str | None] = mapped_column(String(120))
+    reason: Mapped[str] = mapped_column(Text, default="", server_default="")
+    changed_by: Mapped[str] = mapped_column(String(120))
+    changed_by_email: Mapped[str | None] = mapped_column(String(254))
+    changed_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+
+
+class EmailLog(Base):
+    """One row per email the portal tried to send (SMTP), with its outcome."""
+
+    __tablename__ = "email_logs"
+    __table_args__ = (
+        CheckConstraint(_in("kind", EMAIL_KINDS), name="ck_email_logs_kind"),
+        CheckConstraint(_in("status", EMAIL_STATUS), name="ck_email_logs_status"),
+        Index("ix_email_logs_created", "created_at"),
+        Index("ix_email_logs_sender", "sender_email"),
+        Index("ix_email_logs_batch", "batch_id"),
+    )
+
+    email_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    batch_id: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(10))
+    error: Mapped[str | None] = mapped_column(Text)
+    sender_email: Mapped[str | None] = mapped_column(String(254))
+    sender_name: Mapped[str] = mapped_column(String(120))
+    sender_role: Mapped[str] = mapped_column(String(16))
+    recipient_email: Mapped[str] = mapped_column(String(254))
+    recipient_name: Mapped[str | None] = mapped_column(String(120))
+    recipient_roll: Mapped[str | None] = mapped_column(ForeignKey("students.roll", ondelete="SET NULL"))
+    company_id: Mapped[str | None] = mapped_column(ForeignKey("companies.company_id", ondelete="SET NULL"))
+    drive_id: Mapped[str | None] = mapped_column(ForeignKey("placement_drives.drive_id", ondelete="SET NULL"))
+    subject: Mapped[str] = mapped_column(String(255))
+    body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())

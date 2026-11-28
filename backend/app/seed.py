@@ -18,8 +18,10 @@ from sqlalchemy.orm import Session
 from . import pdfgen
 from .config import settings
 from .database import SessionLocal, engine
+from .migrations import snapshot_resume_file
 from .models import (
     Application,
+    AssignmentHistory,
     ApplicationEvent,
     AuditLog,
     Company,
@@ -39,7 +41,7 @@ DAY = timedelta(days=1)
 
 STAFF = [
     # email, name, role, title, can_verify, linked student
-    (f"ccpc@{DOMAIN}", "CCPC Office", "CCPC", "CCPC Administrator · FIC Desk", True, None),
+    (f"cdpc@{DOMAIN}", "CDPC Office", "CDPC", "CDPC Administrator · FIC Desk", True, None),
     (f"verifier@{DOMAIN}", "Dr. Subrat Kar", "VERIFIER", "Authorized Faculty Verifier", True, None),
     (f"neha.gupta@{DOMAIN}", "Prof. Neha Gupta", "VERIFIER", "Staff Verifier", True, None),
     (f"staff.office@{DOMAIN}", "Rajesh Kumar", "VERIFIER", "Academic Section Staff (view-only)", False, None),
@@ -47,6 +49,11 @@ STAFF = [
     (f"simran.kaur@{DOMAIN}", "Simran Kaur", "SPOC", "Student SPOC", False, None),
 ]
 SPOC = {"u-spoc1": f"spoc@{DOMAIN}", "u-spoc2": f"simran.kaur@{DOMAIN}"}
+# Recruitment verifier of each company (reviews the resumes its applicants submit).
+VERIFIER_OF = {"c-01": f"verifier@{DOMAIN}", "c-03": f"verifier@{DOMAIN}", "c-06": f"verifier@{DOMAIN}", "c-07": f"verifier@{DOMAIN}",
+               "c-02": f"neha.gupta@{DOMAIN}", "c-04": f"neha.gupta@{DOMAIN}", "c-05": f"neha.gupta@{DOMAIN}"}
+# Applications submitted with a resume other than the student's default (doc-005 = Rohan's "Data Resume").
+RESUME_OVERRIDE = {"a-02": "doc-005"}
 
 STUDENT_ROWS = [
     # id, roll, name, degree, branch, cgpa, sem, c10, c12, backlogs, verification, extras
@@ -171,8 +178,8 @@ PENDING_INVITES = [
 ]
 
 AUDIT_ROWS = [
-    (-20 * DAY, "CCPC Office", "CCPC", "Invitation", "FEE_LIST_IMPORTED", "15 fee-paid students imported from the Academic Section list."),
-    (-19 * DAY, "CCPC Office", "CCPC", "Invitation", "INVITATION_SENT", "Bulk onboarding invitation sent to 15 fee-paid students."),
+    (-20 * DAY, "CDPC Office", "CDPC", "Invitation", "FEE_LIST_IMPORTED", "15 fee-paid students imported from the Academic Section list."),
+    (-19 * DAY, "CDPC Office", "CDPC", "Invitation", "INVITATION_SENT", "Bulk onboarding invitation sent to 15 fee-paid students."),
     (-15 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_CREATED", "Acme Systems — Cloud Infrastructure Engineer published (₹26 LPA)."),
     (-14 * DAY, "Dr. Subrat Kar", "VERIFIER", "Profile", "PROFILE_VERIFIED", "2026AIM1028 (Rohan Verma) verified and auto-locked."),
     (-12 * DAY, "System Engine", "SYSTEM", "Drive", "DRIVE_CLOSED", "Nova Labs — Data Engineer closed at deadline."),
@@ -180,19 +187,19 @@ AUDIT_ROWS = [
     (-7 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_FROZEN", "Orbit Tech — Product Engineer frozen pending headcount revision."),
     (-6 * DAY, "Ananya Sharma", "SPOC", "Drive", "DRIVE_CREATED", "Acme Systems — Software Engineer published (₹42 LPA)."),
     (-6 * DAY + 2 * HOUR, "Rohan Verma", "STUDENT", "Ticket", "CORRECTION_REQUESTED", "2026AIM1028 requested a Semester SGPA correction."),
-    (-5 * DAY, "CCPC Office", "CCPC", "Ticket", "TICKET_REJECTED", "Correction ticket t-02 for 2026AIM1028 rejected."),
+    (-5 * DAY, "CDPC Office", "CDPC", "Ticket", "TICKET_REJECTED", "Correction ticket t-02 for 2026AIM1028 rejected."),
     (-5 * DAY + HOUR, "Simran Kaur", "SPOC", "Drive", "DRIVE_CREATED", "Nova Labs — Machine Learning Engineer published (₹38 LPA)."),
     (-4 * DAY, "Simran Kaur", "SPOC", "Application", "BATCH_SHORTLIST_EXECUTED", "Helix AI: 1 candidate moved to SHORTLISTED (2026CSM1002)."),
     (-3 * DAY, "Prof. Neha Gupta", "VERIFIER", "Profile", "REVISION_REQUESTED", "2026EEB1031 (Pooja Rathi): Class 12 value does not match the marksheet."),
-    (-2 * DAY, "CCPC Office", "CCPC", "Drive", "DEADLINE_EXTENDED", "Vertex Analytics — Data Analyst deadline extended by 48 hours."),
+    (-2 * DAY, "CDPC Office", "CDPC", "Drive", "DEADLINE_EXTENDED", "Vertex Analytics — Data Analyst deadline extended by 48 hours."),
     (-2 * DAY + 3 * HOUR, "Ananya Sharma", "SPOC", "Application", "ROSTER_EXPORTED", "Acme Systems — Software Engineer: 5 applicant rows exported as CSV."),
-    (-1 * DAY, "CCPC Office", "CCPC", "Invitation", "INVITATION_SENT", "Invitation sent to 2026AIB1033 (Nisha Patel)."),
+    (-1 * DAY, "CDPC Office", "CDPC", "Invitation", "INVITATION_SENT", "Invitation sent to 2026AIB1033 (Nisha Patel)."),
     (-26 * HOUR, "Harsh Vardhan", "STUDENT", "Ticket", "CORRECTION_REQUESTED", "2026MEB1012 requested a Class 12 % correction."),
     (-20 * HOUR, "Ananya Sharma", "SPOC", "Application", "BATCH_SHORTLIST_EXECUTED", "Orbit Tech — SDE-1: 2 candidates moved to SHORTLISTED (2026AIM1028, 2026MCB1019)."),
     (-9 * HOUR, "Yash Thakur", "STUDENT", "Ticket", "UNFREEZE_REQUESTED", "2026CEB1007 requested profile unfreeze (Active backlogs)."),
     (-3 * HOUR, "Nikhil Bansal", "STUDENT", "Profile", "PROFILE_SUBMITTED", "2026CSB1050 (Nikhil Bansal) submitted profile for verification."),
 ]
-ACTOR_EMAIL = {"CCPC Office": f"ccpc@{DOMAIN}", "Dr. Subrat Kar": f"verifier@{DOMAIN}", "Prof. Neha Gupta": f"neha.gupta@{DOMAIN}",
+ACTOR_EMAIL = {"CDPC Office": f"cdpc@{DOMAIN}", "Dr. Subrat Kar": f"verifier@{DOMAIN}", "Prof. Neha Gupta": f"neha.gupta@{DOMAIN}",
                "Ananya Sharma": f"spoc@{DOMAIN}", "Simran Kaur": f"simran.kaur@{DOMAIN}", "Rohan Verma": f"2026aim1028@{DOMAIN}",
                "Harsh Vardhan": f"2026meb1012@{DOMAIN}", "Yash Thakur": f"2026ceb1007@{DOMAIN}", "Nikhil Bansal": f"2026csb1050@{DOMAIN}"}
 
@@ -292,9 +299,15 @@ def seed(db: Session, now: datetime | None = None) -> None:
     # --- companies & drives --------------------------------------------------------------------
     for cid, name, industry, web, desc, contact, rec, phone, spoc, status in COMPANIES:
         db.add(Company(company_id=cid, name=name, industry=industry, website=web, description=desc, contact_name=contact,
-                       recruiter_email=rec, phone=phone, assigned_spoc=SPOC.get(spoc), status=status, active=True,
+                       recruiter_email=rec, phone=phone, assigned_spoc=SPOC.get(spoc), assigned_verifier=VERIFIER_OF.get(cid),
+                       status=status, active=True,
                        approved_at=None if status == "PENDING_APPROVAL" else now - 10 * DAY, created_at=now - 12 * DAY))
     db.flush()
+    # One earlier reassignment, so the history panel has something to show.
+    db.add(AssignmentHistory(company_id="c-04", assignment_role="VERIFIER", previous_email=f"verifier@{DOMAIN}",
+                             previous_name="Dr. Subrat Kar", new_email=f"neha.gupta@{DOMAIN}", new_name="Prof. Neha Gupta",
+                             reason="Balancing review load across verifiers", changed_by="CDPC Office",
+                             changed_by_email=f"cdpc@{DOMAIN}", changed_at=now - 2 * DAY))
     creator = {"Ananya Sharma": f"spoc@{DOMAIN}", "Simran Kaur": f"simran.kaur@{DOMAIN}"}
     for d in _drives(now):
         db.add(Drive(**{**d, "ctc": D(d["ctc"]), "min_cgpa": D(d["min_cgpa"]), "created_by_email": creator.get(d["created_by"])}))
@@ -307,12 +320,17 @@ def seed(db: Session, now: datetime | None = None) -> None:
         applied = now - days_ago * DAY
         steps = ["APPLIED", "UNDER_REVIEW", stage] if stage in ("REJECTED", "WITHDRAWN") else PATH[: PATH.index(stage) + 1]
         span = max(timedelta(hours=1), days_ago * DAY - 2 * HOUR)
-        app = Application(application_id=aid, drive_id=did, roll=roll, resume_doc_id=default_resume.get(sid), stage=stage, applied_at=applied)
+        resume = db.get(Document, RESUME_OVERRIDE.get(aid) or default_resume.get(sid))
+        app = Application(application_id=aid, drive_id=did, roll=roll, resume_doc_id=resume.doc_id, stage=stage, applied_at=applied)
+        snap, digest, size = snapshot_resume_file(resume.file_path, aid, resume.file_name)
+        app.resume_label, app.resume_file_name, app.resume_file_type = resume.label or resume.file_name, resume.file_name, resume.file_type
+        app.resume_size, app.resume_sha256, app.resume_version = size, digest, resume.version or 1
+        app.resume_snapshot_path, app.resume_submitted_at = snap, applied
         for k, st in enumerate(steps):
             app.events.append(ApplicationEvent(
                 stage=st, at=applied + span * k / max(1, len(steps)),
                 actor="Student" if k == 0 or st == "WITHDRAWN" else "SPOC",
-                note="Application submitted with default resume" if k == 0 else ("Not shortlisted after assessment" if st == "REJECTED" else ""),
+                note=f"Applied with {resume.label or resume.file_name} (v1)" if k == 0 else ("Not shortlisted after assessment" if st == "REJECTED" else ""),
             ))
         app.updated_at = app.events[-1].at
         db.add(app)
@@ -341,7 +359,7 @@ def seed(db: Session, now: datetime | None = None) -> None:
         Ticket(ticket_id="t-02", roll="2026AIM1028", ticket_type="CORRECTION", field="semCgpa", field_label="Semester SGPA",
                current_value="8.24, 8.48, 8.54", requested_value="8.24, 8.48, 8.56", status="REJECTED", created_at=now - 6 * DAY,
                justification="Semester 3 SGPA was rounded incorrectly on the record.", resolved_at=now - 5 * DAY,
-               resolved_by="CCPC Office", resolution="Semester 3 grade card shows SGPA 8.54. No change required."),
+               resolved_by="CDPC Office", resolution="Semester 3 grade card shows SGPA 8.54. No change required."),
         Ticket(ticket_id="t-03", roll="2026CEB1007", ticket_type="UNFREEZE", field="backlogs", field_label="Active backlogs",
                current_value="2", requested_value="1", status="OPEN", created_at=now - 9 * HOUR,
                justification="Cleared MA201 in the supplementary examination held in September. Result notification is available on the academic portal."),
@@ -360,7 +378,7 @@ def seed(db: Session, now: datetime | None = None) -> None:
     db.commit()
 
 
-TABLES = ["notifications", "audit_logs", "unfreeze_tickets", "application_events", "applications", "invitations",
+TABLES = ["email_logs", "assignment_history", "notifications", "audit_logs", "unfreeze_tickets", "application_events", "applications", "invitations",
           "placement_drives", "companies", "documents", "students", "users"]
 
 
@@ -385,7 +403,7 @@ def main() -> None:
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     reset_and_seed()
     print(f"Demo data loaded. All demo accounts use the password: {settings.demo_password}")
-    print(f"  CCPC admin : ccpc@{DOMAIN}\n  Verifier   : verifier@{DOMAIN}\n  SPOC       : spoc@{DOMAIN}\n  Student    : 2026aim1028@{DOMAIN}")
+    print(f"  CDPC admin : cdpc@{DOMAIN}\n  Verifier   : verifier@{DOMAIN}\n  SPOC       : spoc@{DOMAIN}\n  Student    : 2026aim1028@{DOMAIN}")
 
 
 if __name__ == "__main__":
